@@ -3,6 +3,7 @@ import { createBlobUrl, revokeBlobUrl } from "@/lib/invoice/create-blob-url";
 import { generateInvoiceName } from "@/lib/invoice/generate-invoice-name";
 import { createPdfToImage } from "@/lib/invoice/create-pdf-to-image";
 import { createPdfBlob } from "@/lib/invoice/create-pdf-blob";
+import { normalizeInvoiceForRender } from "@/lib/invoice/normalize-invoice";
 import { downloadFile } from "@/lib/invoice/download-file";
 import { ERROR_MESSAGES } from "@/constants/issues";
 import { toast } from "sonner";
@@ -14,15 +15,18 @@ export class InvoiceDownloadManager {
 
   // Initialize the invoice data
   public async initialize(invoice: ZodCreateInvoiceSchema): Promise<void> {
+    const normalizedInvoice = normalizeInvoiceForRender(invoice);
     // Cleanup resources
     this.cleanup();
 
     // Initialize the invoice data
-    this.invoiceData = invoice;
-    this.invoiceName = generateInvoiceName({ invoiceData: invoice, extension: "pdf" });
+    this.invoiceData = normalizedInvoice;
+    this.invoiceName = generateInvoiceName({ invoiceData: normalizedInvoice, extension: "pdf" });
 
-    const invoiceData = this.isInvoiceDataInitialized();
-    this.blob = await createPdfBlob({ invoiceData, template: invoiceData.invoiceDetails.theme.template });
+    this.blob = await createPdfBlob({
+      invoiceData: normalizedInvoice,
+      template: normalizedInvoice.invoiceDetails.theme.template,
+    });
   }
 
   // Preview the PDF - we dont save data on preview
@@ -47,6 +51,27 @@ export class InvoiceDownloadManager {
     const url = createBlobUrl({ blob: this.isBlobInitialized() });
     downloadFile({ url, fileName: this.isInvoiceNameInitialized() });
     revokeBlobUrl({ url });
+  }
+
+  public printPdf() {
+    const url = createBlobUrl({ blob: this.isBlobInitialized() });
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.src = url;
+    iframe.onload = () => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      window.setTimeout(() => {
+        iframe.remove();
+        revokeBlobUrl({ url });
+      }, 1000);
+    };
+    document.body.appendChild(iframe);
   }
 
   // Cleanup resources

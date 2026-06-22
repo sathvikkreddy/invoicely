@@ -12,7 +12,12 @@ export const listInvoicesQuery = async (userId: string) => {
     with: {
       invoiceFields: {
         with: {
-          clientDetails: {
+          billingClientDetails: {
+            with: {
+              metadata: true,
+            },
+          },
+          shippingClientDetails: {
             with: {
               metadata: true,
             },
@@ -32,7 +37,11 @@ export const listInvoicesQuery = async (userId: string) => {
               paymentInformation: true,
             },
           },
-          items: true,
+          items: {
+            with: {
+              metadata: true,
+            },
+          },
         },
       },
     },

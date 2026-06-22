@@ -11,7 +11,7 @@ import React from "react";
 
 interface InvoiceFieldKeyStringValuesSectionProps {
   reactform: UseFormReturn<ZodCreateInvoiceSchema>;
-  name: "companyDetails.metadata" | "clientDetails.metadata" | "metadata.paymentInformation";
+  name: "companyDetails.metadata" | "billingClientDetails.metadata" | "shippingClientDetails.metadata" | "metadata.paymentInformation";
   className?: string;
   label?: string | undefined;
   description?: string | undefined;

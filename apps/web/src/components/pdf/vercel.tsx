@@ -3,7 +3,7 @@
 
 import { ZodCreateInvoiceSchema } from "@/zod-schemas/invoice/create-invoice";
 import { Document, Page, Text, View, Image, Font } from "@react-pdf/renderer";
-import { getSubTotalValue, getTotalValue } from "@/constants/pdf-helpers";
+import { getInvoiceTotals } from "@/constants/pdf-helpers";
 import { resolveBodyFontFamily } from "@/lib/invoice/resolve-pdf-font";
 import { GEIST_FONT, GEIST_MONO_FONT } from "@/constants/pdf-fonts";
 import { formatCurrencyText } from "@/constants/currency";
@@ -26,8 +26,9 @@ Font.register({
 
 // Invoice PDF Document component
 const VercelPdf: React.FC<{ data: ZodCreateInvoiceSchema }> = ({ data }) => {
-  const subtotal = getSubTotalValue(data);
-  const total = getTotalValue(data);
+  const totals = getInvoiceTotals(data);
+  const subtotal = totals.subtotal;
+  const total = totals.total;
 
   // Built per-render so the body font follows the selected theme font and so a CJK
   // fallback is appended only when the invoice actually contains Chinese (issue #48).
@@ -102,6 +103,18 @@ const VercelPdf: React.FC<{ data: ZodCreateInvoiceSchema }> = ({ data }) => {
                 <Text style={tw("text-2xs font-normal text-neutral-300")}>{data.invoiceDetails.paymentTerms}</Text>
               </View>
             )}
+            {data.invoiceDetails.poNumber && (
+              <View style={tw("flex flex-row items-center gap-1")}>
+                <Text style={tw("text-2xs min-w-[100px] text-neutral-700")}>PO Number</Text>
+                <Text style={tw("text-2xs font-normal text-neutral-300")}>{data.invoiceDetails.poNumber}</Text>
+              </View>
+            )}
+            {data.invoiceDetails.eWaybillNumber && (
+              <View style={tw("flex flex-row items-center gap-1")}>
+                <Text style={tw("text-2xs min-w-[100px] text-neutral-700")}>E-waybill</Text>
+                <Text style={tw("text-2xs font-normal text-neutral-300")}>{data.invoiceDetails.eWaybillNumber}</Text>
+              </View>
+            )}
             <View style={tw("flex flex-row items-center gap-1")}>
               <Text style={tw("text-2xs min-w-[100px] text-neutral-700")}>Currency</Text>
               <Text style={tw("text-2xs font-normal text-neutral-300")}>{data.invoiceDetails.currency}</Text>
@@ -122,10 +135,16 @@ const VercelPdf: React.FC<{ data: ZodCreateInvoiceSchema }> = ({ data }) => {
         </View>
         {/* Invoice billing details */}
         <View style={tw("flex flex-row w-full gap-2.5 border-b border-borderColor")}>
-          <View style={tw(cn("flex flex-col gap-1.5 p-4 w-1/2"))}>
+          <View style={tw(cn("flex flex-col gap-1.5 p-4 w-1/3"))}>
             <Text style={tw(cn("text-neutral-600"))}>Billed By</Text>
             <Text style={tw("text-sm text-neutral-100")}>{data.companyDetails.name}</Text>
             <Text style={tw("text-2xs font-normal text-neutral-400")}>{data.companyDetails.address}</Text>
+            {data.companyDetails.gstin && <Text style={tw("text-2xs font-normal text-neutral-400")}>GSTIN {data.companyDetails.gstin}</Text>}
+            {(data.companyDetails.state || data.companyDetails.stateCode) && (
+              <Text style={tw("text-2xs font-normal text-neutral-400")}>
+                {data.companyDetails.state} {data.companyDetails.stateCode}
+              </Text>
+            )}
             {data.companyDetails.metadata.map((metadata) => (
               <View key={metadata.label} style={tw("flex flex-row items-center gap-1")}>
                 <Text style={tw("text-2xs text-neutral-600")}>{metadata.label}</Text>
@@ -133,11 +152,38 @@ const VercelPdf: React.FC<{ data: ZodCreateInvoiceSchema }> = ({ data }) => {
               </View>
             ))}
           </View>
-          <View style={tw(cn("flex flex-col gap-1.5 p-4 w-1/2 border-l border-borderColor"))}>
+          <View style={tw(cn("flex flex-col gap-1.5 p-4 w-1/3 border-l border-borderColor"))}>
             <Text style={tw(cn("text-neutral-600"))}>Billed To</Text>
-            <Text style={tw("text-sm text-neutral-100")}>{data.clientDetails.name}</Text>
-            <Text style={tw("text-2xs font-normal text-neutral-400")}>{data.clientDetails.address}</Text>
-            {data.clientDetails.metadata.map((metadata) => (
+            <Text style={tw("text-sm text-neutral-100")}>{data.billingClientDetails.name}</Text>
+            <Text style={tw("text-2xs font-normal text-neutral-400")}>{data.billingClientDetails.address}</Text>
+            {data.billingClientDetails.gstin && (
+              <Text style={tw("text-2xs font-normal text-neutral-400")}>GSTIN {data.billingClientDetails.gstin}</Text>
+            )}
+            {(data.billingClientDetails.state || data.billingClientDetails.stateCode) && (
+              <Text style={tw("text-2xs font-normal text-neutral-400")}>
+                {data.billingClientDetails.state} {data.billingClientDetails.stateCode}
+              </Text>
+            )}
+            {data.billingClientDetails.metadata.map((metadata) => (
+              <View key={metadata.label} style={tw("flex flex-row items-center gap-1")}>
+                <Text style={tw("text-2xs leading-[10px] text-neutral-600")}>{metadata.label}</Text>
+                <Text style={tw("text-2xs leading-[10px] font-normal text-neutral-400")}>{metadata.value}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={tw(cn("flex flex-col gap-1.5 p-4 w-1/3 border-l border-borderColor"))}>
+            <Text style={tw(cn("text-neutral-600"))}>Shipped To</Text>
+            <Text style={tw("text-sm text-neutral-100")}>{data.shippingClientDetails.name}</Text>
+            <Text style={tw("text-2xs font-normal text-neutral-400")}>{data.shippingClientDetails.address}</Text>
+            {data.shippingClientDetails.gstin && (
+              <Text style={tw("text-2xs font-normal text-neutral-400")}>GSTIN {data.shippingClientDetails.gstin}</Text>
+            )}
+            {(data.shippingClientDetails.state || data.shippingClientDetails.stateCode) && (
+              <Text style={tw("text-2xs font-normal text-neutral-400")}>
+                {data.shippingClientDetails.state} {data.shippingClientDetails.stateCode}
+              </Text>
+            )}
+            {data.shippingClientDetails.metadata.map((metadata) => (
               <View key={metadata.label} style={tw("flex flex-row items-center gap-1")}>
                 <Text style={tw("text-2xs leading-[10px] text-neutral-600")}>{metadata.label}</Text>
                 <Text style={tw("text-2xs leading-[10px] font-normal text-neutral-400")}>{metadata.value}</Text>
@@ -157,9 +203,11 @@ const VercelPdf: React.FC<{ data: ZodCreateInvoiceSchema }> = ({ data }) => {
               ),
             ]}
           >
-            <Text style={tw("w-[60%]")}>Item</Text>
+            <Text style={tw("w-[38%]")}>Item</Text>
+            <Text style={tw("w-[10%] text-center")}>HSN/SAC</Text>
             <Text style={tw("w-[10%] text-center")}>Qty</Text>
-            <Text style={tw("w-[15%] text-right")}>Price</Text>
+            <Text style={tw("w-[12%] text-right")}>Price</Text>
+            <Text style={tw("w-[15%] text-right")}>GST</Text>
             <Text style={tw("w-[15%] text-right")}>Total</Text>
           </View>
           <View style={tw("flex flex-col")}>
@@ -174,20 +222,34 @@ const VercelPdf: React.FC<{ data: ZodCreateInvoiceSchema }> = ({ data }) => {
                   ),
                 )}
               >
-                <View style={tw("flex flex-col w-[60%]")}>
+                <View style={tw("flex flex-col w-[38%]")}>
                   <Text style={tw("w-full text-xs leading-[12px] text-neutral-100")}>{item.name}</Text>
                   <Text style={tw("text-2xs leading-[10px] mt-1 font-normal text-neutral-700")}>
                     {item.description}
                   </Text>
+                  {item.metadata.map((metadata) => (
+                    <Text key={metadata.label} style={tw("text-2xs leading-[10px] mt-1 font-normal text-neutral-600")}>
+                      {metadata.label}: {metadata.value}
+                    </Text>
+                  ))}
                 </View>
                 <Text style={tw("w-[10%] text-center font-geistmono tracking-tighter text-neutral-100")}>
-                  {item.quantity}
+                  {item.hsnSac}
                 </Text>
-                <Text style={tw("w-[15%] text-right font-geistmono tracking-tighter text-neutral-100")}>
+                <Text style={tw("w-[10%] text-center font-geistmono tracking-tighter text-neutral-100")}>
+                  {item.quantity} {item.units}
+                </Text>
+                <Text style={tw("w-[12%] text-right font-geistmono tracking-tighter text-neutral-100")}>
                   {formatCurrencyText(data.invoiceDetails.currency, item.unitPrice)}
                 </Text>
+                <View style={tw("w-[15%] flex flex-col items-end")}>
+                  <Text style={tw("text-right font-geistmono tracking-tighter text-neutral-100")}>
+                    {formatCurrencyText(data.invoiceDetails.currency, totals.itemTotals[index]?.totalTax ?? 0)}
+                  </Text>
+                  <Text style={tw("text-3xs text-right font-normal text-neutral-600")}>{formatGstRateText(item)}</Text>
+                </View>
                 <Text style={tw("w-[15%] text-right font-geistmono tracking-tighter text-neutral-100")}>
-                  {formatCurrencyText(data.invoiceDetails.currency, item.quantity * item.unitPrice)}
+                  {formatCurrencyText(data.invoiceDetails.currency, totals.itemTotals[index]?.total ?? 0)}
                 </Text>
               </View>
             ))}
@@ -248,6 +310,30 @@ const VercelPdf: React.FC<{ data: ZodCreateInvoiceSchema }> = ({ data }) => {
                   {formatCurrencyText(data.invoiceDetails.currency, subtotal)}
                 </Text>
               </View>
+              {totals.cgstTotal > 0 && (
+                <View style={tw("flex flex-row items-center justify-between")}>
+                  <Text style={tw("text-2xs text-neutral-500")}>CGST</Text>
+                  <Text style={tw("text-2xs font-geistmono tracking-tight text-neutral-400 leading-[10px]")}>
+                    {formatCurrencyText(data.invoiceDetails.currency, totals.cgstTotal)}
+                  </Text>
+                </View>
+              )}
+              {totals.sgstTotal > 0 && (
+                <View style={tw("flex flex-row items-center justify-between")}>
+                  <Text style={tw("text-2xs text-neutral-500")}>SGST</Text>
+                  <Text style={tw("text-2xs font-geistmono tracking-tight text-neutral-400 leading-[10px]")}>
+                    {formatCurrencyText(data.invoiceDetails.currency, totals.sgstTotal)}
+                  </Text>
+                </View>
+              )}
+              {totals.igstTotal > 0 && (
+                <View style={tw("flex flex-row items-center justify-between")}>
+                  <Text style={tw("text-2xs text-neutral-500")}>IGST</Text>
+                  <Text style={tw("text-2xs font-geistmono tracking-tight text-neutral-400 leading-[10px]")}>
+                    {formatCurrencyText(data.invoiceDetails.currency, totals.igstTotal)}
+                  </Text>
+                </View>
+              )}
               {/* Billing Details */}
               {data.invoiceDetails.billingDetails.map((billingDetail, index) => {
                 if (billingDetail.type === "percentage") {
@@ -286,6 +372,16 @@ const VercelPdf: React.FC<{ data: ZodCreateInvoiceSchema }> = ({ data }) => {
       </Page>
     </Document>
   );
+};
+
+const formatGstRateText = (item: ZodCreateInvoiceSchema["items"][number]) => {
+  const rates = [
+    item.cgstRate > 0 ? `CGST ${item.cgstRate}%` : null,
+    item.sgstRate > 0 ? `SGST ${item.sgstRate}%` : null,
+    item.igstRate > 0 ? `IGST ${item.igstRate}%` : null,
+  ].filter(Boolean);
+
+  return rates.length > 0 ? rates.join(" + ") : "No GST";
 };
 
 export default VercelPdf;

@@ -1,3 +1,4 @@
+import { gstinSchema, stateCodeSchema, stateSchema } from "@/zod-schemas/common/invoice-party";
 import { z } from "zod";
 
 export const valueType = z.enum(["percentage", "fixed"], {
@@ -5,24 +6,6 @@ export const valueType = z.enum(["percentage", "fixed"], {
     message: "Value type must be either 'percentage' or 'fixed'",
   }),
 });
-
-export const createInvoiceItemSchema = z.object(
-  {
-    name: z
-      .string({ invalid_type_error: "Item name must be a string" })
-      .min(1, { message: "Item name cannot be empty" }),
-    description: z.string({
-      invalid_type_error: "Item description must be a string",
-    }),
-    quantity: z.coerce
-      .number({ invalid_type_error: "Quantity must be a number" })
-      .positive({ message: "Quantity must be positive" }),
-    unitPrice: z.coerce
-      .number({ invalid_type_error: "Unit price must be a number" })
-      .positive({ message: "Unit price must be positive" }),
-  },
-  { invalid_type_error: "Item must be an object" },
-);
 
 export const createInvoiceFieldKeyStringValuesSchema = z.object(
   {
@@ -36,6 +19,34 @@ export const createInvoiceFieldKeyStringValuesSchema = z.object(
   { invalid_type_error: "Field key string values must be an object" },
 );
 
+export const createInvoiceItemSchema = z.object(
+  {
+    name: z
+      .string({ invalid_type_error: "Item name must be a string" })
+      .min(1, { message: "Item name cannot be empty" }),
+    description: z.string({
+      invalid_type_error: "Item description must be a string",
+    }),
+    quantity: z.coerce
+      .number({ invalid_type_error: "Quantity must be a number" })
+      .positive({ message: "Quantity must be positive" }),
+    units: z.string({ invalid_type_error: "Units must be a string" }).trim().min(1, {
+      message: "Units cannot be empty",
+    }),
+    unitPrice: z.coerce
+      .number({ invalid_type_error: "Unit price must be a number" })
+      .positive({ message: "Unit price must be positive" }),
+    hsnSac: z.string({ invalid_type_error: "HSN/SAC must be a string" }),
+    cgstRate: z.coerce.number({ invalid_type_error: "CGST rate must be a number" }).min(0),
+    sgstRate: z.coerce.number({ invalid_type_error: "SGST rate must be a number" }).min(0),
+    igstRate: z.coerce.number({ invalid_type_error: "IGST rate must be a number" }).min(0),
+    metadata: z.array(createInvoiceFieldKeyStringValuesSchema),
+  },
+  { invalid_type_error: "Item must be an object" },
+);
+
+export type CreateInvoiceItem = z.output<typeof createInvoiceItemSchema>;
+
 export const createInvoiceFieldKeyNumberValuesSchema = z.object(
   {
     label: z.string({ invalid_type_error: "Label must be a string" }).min(1, {
@@ -46,6 +57,19 @@ export const createInvoiceFieldKeyNumberValuesSchema = z.object(
   },
   { invalid_type_error: "Field key number values must be an object" },
 );
+
+const createInvoicePartySchema = z.object({
+  name: z.string({ invalid_type_error: "Client name must be a string" }).min(1, {
+    message: "Client name cannot be empty",
+  }),
+  address: z.string({ invalid_type_error: "Address must be a string" }).trim().min(1, {
+    message: "Address cannot be empty",
+  }),
+  gstin: gstinSchema,
+  state: stateSchema,
+  stateCode: stateCodeSchema,
+  metadata: z.array(createInvoiceFieldKeyStringValuesSchema),
+});
 
 export const createInvoiceSchema = z.object({
   companyDetails: z.object(
@@ -85,21 +109,20 @@ export const createInvoiceSchema = z.object({
       name: z.string({ invalid_type_error: "Company name must be a string" }).min(1, {
         message: "Company name cannot be empty",
       }),
-      address: z.string({ invalid_type_error: "Address must be a string" }),
+      address: z.string({ invalid_type_error: "Address must be a string" }).trim().min(1, {
+        message: "Address cannot be empty",
+      }),
+      gstin: gstinSchema,
+      state: stateSchema,
+      stateCode: stateCodeSchema,
       metadata: z.array(createInvoiceFieldKeyStringValuesSchema),
     },
     { invalid_type_error: "Company details must be an object" },
   ),
-  clientDetails: z.object(
-    {
-      name: z
-        .string({ invalid_type_error: "Client name must be a string" })
-        .min(1, { message: "Client name cannot be empty" }),
-      address: z.string({ invalid_type_error: "Address must be a string" }),
-      metadata: z.array(createInvoiceFieldKeyStringValuesSchema),
-    },
-    { invalid_type_error: "Client details must be an object" },
-  ),
+  billingClientDetails: createInvoicePartySchema,
+  shippingClientDetails: createInvoicePartySchema.extend({
+    sameAsBilling: z.boolean({ invalid_type_error: "Same as billing must be a boolean" }),
+  }),
   invoiceDetails: z.object(
     {
       theme: z.object({
@@ -128,6 +151,8 @@ export const createInvoiceSchema = z.object({
         .min(1, { message: "Serial number cannot be empty" }),
       date: z.date({ invalid_type_error: "Date must be a valid date" }),
       dueDate: z.date({ invalid_type_error: "Due date must be a valid date" }).optional().nullable(),
+      poNumber: z.string({ invalid_type_error: "PO number must be a string" }),
+      eWaybillNumber: z.string({ invalid_type_error: "E-waybill number must be a string" }),
       paymentTerms: z.string({
         invalid_type_error: "Payment terms must be a string",
       }),
@@ -135,7 +160,7 @@ export const createInvoiceSchema = z.object({
     },
     { invalid_type_error: "Invoice details must be an object" },
   ),
-  items: z.array(createInvoiceItemSchema),
+  items: z.array(createInvoiceItemSchema).min(1, { message: "Add at least one invoice item" }),
   metadata: z.object(
     {
       notes: z.string({ invalid_type_error: "Notes must be a string" }),
@@ -150,13 +175,33 @@ export type ZodCreateInvoiceSchema = z.infer<typeof createInvoiceSchema>;
 
 export const createInvoiceSchemaDefaultValues: ZodCreateInvoiceSchema = {
   companyDetails: {
-    name: "Invoicely Ltd",
-    address: "123 Main St, Anytown, USA",
+    name: "SAI LAKSHMI NARASIMHA PACKAGINGS",
+    address: "21-690/7/A/1, Shivalayanagar,  Suraram , IDA Jeedimetla,  Hyderabad",
+    gstin: "36CVWPK4641J1ZX",
+    state: "Telangana",
+    stateCode: "36",
+    metadata: [
+      {
+        label: "Email",
+        value: "slnpackagings@gmail.com",
+      },
+    ],
+  },
+  billingClientDetails: {
+    name: "SAI LAKSHMI NARASIMHA PACKAGINGS",
+    address: "21-690/7/A/1, Shivalayanagar,  Suraram , IDA Jeedimetla,  Hyderabad",
+    gstin: "36ABAFS5306A1ZQ",
+    state: "Telangana",
+    stateCode: "36",
     metadata: [],
   },
-  clientDetails: {
-    name: "John Doe",
-    address: "456 Second St, Anytown, USA",
+  shippingClientDetails: {
+    sameAsBilling: true,
+    name: "SAI LAKSHMI NARASIMHA PACKAGINGS",
+    address: "21-690/7/A/1, Shivalayanagar,  Suraram , IDA Jeedimetla,  Hyderabad",
+    gstin: "36ABAFS5306A1ZQ",
+    state: "Telangana",
+    stateCode: "36",
     metadata: [],
   },
   invoiceDetails: {
@@ -165,14 +210,33 @@ export const createInvoiceSchemaDefaultValues: ZodCreateInvoiceSchema = {
       baseColor: "#635CFF",
       mode: "light",
     },
-    currency: "USD",
-    prefix: "Invoice INV-",
+    currency: "INR",
+    prefix: "SLNP-",
     serialNumber: "0001",
     date: new Date(), // now
+    dueDate: null,
+    poNumber: "",
+    eWaybillNumber: "",
     paymentTerms: "",
     billingDetails: [],
   },
-  items: [],
+  items: [
+    {
+      name: "HDPE PP WOVEN SACKS",
+      description: "Printing Bags",
+      quantity: 1000,
+      units: "Nos",
+      unitPrice: 15,
+      hsnSac: "39239090",
+      cgstRate: 9,
+      sgstRate: 9,
+      igstRate: 0,
+      metadata: [
+        { label: "Size", value: "24 x 40" },
+        { label: "Bags x Bundles", value: "600 x 1, 500 x 2" },
+      ],
+    },
+  ],
   metadata: {
     notes: "",
     terms: "",

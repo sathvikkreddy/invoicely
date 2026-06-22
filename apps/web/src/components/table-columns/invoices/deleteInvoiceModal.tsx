@@ -14,8 +14,6 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { deleteInvoiceFromIDB } from "@/lib/indexdb-queries/deleteInvoice"; // New import
-import type { InvoiceTypeType } from "@invoicely/db/schema/invoice";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { parseCatchError } from "@/lib/neverthrow/parseCatchError";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -33,7 +31,6 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 interface DeleteInvoiceModalProps {
-  type: InvoiceTypeType;
   invoiceId: string;
 }
 
@@ -43,7 +40,7 @@ const deleteInvoiceSchema = z.object({
 
 type DeleteInvoiceSchema = z.infer<typeof deleteInvoiceSchema>;
 
-const DeleteInvoiceModal = ({ invoiceId, type }: DeleteInvoiceModalProps) => {
+const DeleteInvoiceModal = ({ invoiceId }: DeleteInvoiceModalProps) => {
   const [open, setOpen] = useState(false);
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -65,24 +62,6 @@ const DeleteInvoiceModal = ({ invoiceId, type }: DeleteInvoiceModalProps) => {
     }),
   );
 
-  // IDB Mutation
-  const deleteIDBInvoiceMutation = useMutation({
-    mutationFn: async (data: DeleteInvoiceSchema) => {
-      await deleteInvoiceFromIDB(data.id);
-    },
-    onSuccess: () => {
-      toast.success("Invoice deleted successfully!", {
-        description: "The invoice has been deleted from local storage.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["idb-invoices"] });
-    },
-    onError: (error) => {
-      toast.error("Failed to delete invoice!", {
-        description: parseCatchError(error),
-      });
-    },
-  });
-
   const form = useForm<DeleteInvoiceSchema>({
     resolver: zodResolver(deleteInvoiceSchema),
     defaultValues: {
@@ -91,15 +70,9 @@ const DeleteInvoiceModal = ({ invoiceId, type }: DeleteInvoiceModalProps) => {
   });
 
   const onSubmit = async () => {
-    if (type === "server") {
-      await deleteServerInvoiceMutation.mutateAsync({
-        id: invoiceId,
-      });
-    } else {
-      await deleteIDBInvoiceMutation.mutateAsync({
-        id: invoiceId,
-      });
-    }
+    await deleteServerInvoiceMutation.mutateAsync({
+      id: invoiceId,
+    });
     setOpen(false);
   };
 

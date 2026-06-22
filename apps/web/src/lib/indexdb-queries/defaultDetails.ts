@@ -16,7 +16,7 @@ export const saveDefaultDetails = async (details: ZodDefaultDetailsSchema): Prom
   await db.put(IDB_DEFAULT_DETAILS, {
     id: IDB_DEFAULT_DETAILS_KEY,
     companyDetails: details.companyDetails,
-    clientDetails: details.clientDetails,
+    billingClientDetails: details.billingClientDetails,
     updatedAt: new Date(),
   });
 };

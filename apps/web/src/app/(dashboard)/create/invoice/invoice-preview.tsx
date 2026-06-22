@@ -6,6 +6,7 @@ import {
   ZodCreateInvoiceSchema,
 } from "@/zod-schemas/invoice/create-invoice";
 import { createBlobUrl, revokeBlobUrl } from "@/lib/invoice/create-blob-url";
+import { normalizeInvoiceForRender } from "@/lib/invoice/normalize-invoice";
 import { parseCatchError } from "@/lib/neverthrow/parseCatchError";
 import { invoiceErrorAtom } from "@/global/atoms/invoice-atom";
 import { useMounted, useResizeObserver } from "@mantine/hooks";
@@ -79,7 +80,7 @@ const InvoicePreview = ({ form }: { form: UseFormReturn<ZodCreateInvoiceSchema> 
   const isClient = useMounted();
   const [resizeRef, container] = useResizeObserver();
   const setInvoiceError = useSetAtom(invoiceErrorAtom);
-  const [data, setData] = useState(form.getValues());
+  const [data, setData] = useState(normalizeInvoiceForRender(form.getValues()));
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
   const lastProcessedValueRef = useRef<ZodCreateInvoiceSchema>(createInvoiceSchemaDefaultValues);
@@ -94,7 +95,7 @@ const InvoicePreview = ({ form }: { form: UseFormReturn<ZodCreateInvoiceSchema> 
       const isDataValid = createInvoiceSchema.safeParse(value);
       // If the data is valid, set the data to invoice and clear the errors
       if (isDataValid.success) {
-        setData(value);
+        setData(normalizeInvoiceForRender(value));
         setInvoiceError([]);
       } else {
         setInvoiceError(isDataValid.error.issues);
@@ -124,7 +125,7 @@ const InvoicePreview = ({ form }: { form: UseFormReturn<ZodCreateInvoiceSchema> 
 
     (async () => {
       try {
-        const blob = await createPdfBlob({ invoiceData: data, template: form.watch("invoiceDetails.theme.template") });
+        const blob = await createPdfBlob({ invoiceData: data, template: data.invoiceDetails.theme.template });
         const newUrl = createBlobUrl({ blob });
 
         setGeneratedPdfUrl(newUrl);
@@ -162,7 +163,7 @@ const InvoicePreview = ({ form }: { form: UseFormReturn<ZodCreateInvoiceSchema> 
 
   return (
     <div ref={resizeRef} className="scroll-bar-hidden bg-sidebar h-full w-full overflow-y-auto">
-      {!isClient || !generatedPdfUrl ? (
+      {!generatedPdfUrl ? (
         <div className="h-full w-full">
           <PDFLoading />
         </div>

@@ -9,7 +9,6 @@ import { getImagesWithKey } from "@/lib/manage-assets/getImagesWithKey";
 import EmptySection from "@/components/ui/icon-placeholder";
 import { InvoiceImageType } from "@/types/common/invoice";
 import { IDBImage } from "@/types/indexdb/invoice";
-import { useParams } from "next/navigation";
 import { R2_PUBLIC_URL } from "@/constants";
 import { AuthUser } from "@/types/auth";
 import { useState } from "react";
@@ -36,7 +35,6 @@ export const InvoiceImageSelectorSheet = ({
   onUrlChange,
   onBase64Change,
 }: InvoiceImageSelectorSheetProps) => {
-  const params = useParams();
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const handleImageSelect = (image: string, type: "server" | "local") => {
@@ -68,7 +66,7 @@ export const InvoiceImageSelectorSheet = ({
           </div>
         ) : (
           <div className="flex flex-col gap-4 p-4">
-            {user && (getImagesWithKey(serverImages, type).length > 0 || user.allowedSavingData) && (
+            {user && (
               <div className="flex flex-col gap-4">
                 <div>
                   <div className="instrument-serif text-xl font-bold">Server {type}</div>
@@ -77,8 +75,8 @@ export const InvoiceImageSelectorSheet = ({
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-                  {type === "logo" && user.allowedSavingData && <UploadLogoAsset disableIcon type="server" />}
-                  {type === "signature" && user.allowedSavingData && <UploadSignatureAsset disableIcon type="server" />}
+                  {type === "logo" && <UploadLogoAsset disableIcon type="server" />}
+                  {type === "signature" && <UploadSignatureAsset disableIcon type="server" />}
                   {getImagesWithKey(serverImages, type).map((image) => (
                     <div
                       key={image}
@@ -98,8 +96,7 @@ export const InvoiceImageSelectorSheet = ({
                 </div>
               </div>
             )}
-            {/* Dont display local images if the invoice type is server */}
-            {params?.type !== "server" && (
+            {(
               <div className="flex flex-col gap-4">
                 <div>
                   <div className="instrument-serif text-xl font-bold">Local {type}</div>
@@ -110,8 +107,7 @@ export const InvoiceImageSelectorSheet = ({
                 <Alert variant="destructive">
                   <AlertTitle>Caution</AlertTitle>
                   <AlertDescription>
-                    Don&apos;t select local {type} if you are using server invoice storage. {type} will not be saved in
-                    your invoice.
+                    Local {type}s are stored on this device. Use server assets if you need them across devices.
                   </AlertDescription>
                 </Alert>
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-3">

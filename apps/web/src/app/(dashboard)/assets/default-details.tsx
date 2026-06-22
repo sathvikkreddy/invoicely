@@ -32,7 +32,7 @@ const DefaultDetails = () => {
   }
 
   const defaultValues: ZodDefaultDetailsSchema = data
-    ? { companyDetails: data.companyDetails, clientDetails: data.clientDetails }
+    ? { companyDetails: data.companyDetails, billingClientDetails: data.billingClientDetails }
     : defaultDetailsSchemaDefaultValues;
 
   return <DefaultDetailsForm defaultValues={defaultValues} />;
@@ -78,22 +78,38 @@ const DefaultDetailsForm = ({ defaultValues }: { defaultValues: ZodDefaultDetail
               label="Company Address"
               placeholder="123 Business St, City, Country"
             />
+            <FormInput name="companyDetails.gstin" reactform={form} label="GSTIN" placeholder="GSTIN" />
+            <FormInput name="companyDetails.state" reactform={form} label="State" placeholder="State" />
+            <FormInput name="companyDetails.stateCode" reactform={form} label="State Code" placeholder="State code" />
             <MetadataFields form={form} name="companyDetails.metadata" label="Company Fields" />
           </div>
           <div className="flex flex-col gap-2">
             <div>
-              <div className="instrument-serif text-xl font-bold">Client Details</div>
+              <div className="instrument-serif text-xl font-bold">Billing Client Details</div>
               <p className="text-muted-foreground text-xs">Optional default client, editable on each invoice.</p>
             </div>
-            <FormInput name="clientDetails.name" reactform={form} label="Client Name" placeholder="John Doe" />
+            <FormInput
+              name="billingClientDetails.name"
+              reactform={form}
+              label="Billing Client Name"
+              placeholder="John Doe"
+            />
             <FormTextarea
               className="h-20"
-              name="clientDetails.address"
+              name="billingClientDetails.address"
               reactform={form}
-              label="Client Address"
+              label="Billing Address"
               placeholder="456 Client St, City, Country"
             />
-            <MetadataFields form={form} name="clientDetails.metadata" label="Client Fields" />
+            <FormInput name="billingClientDetails.gstin" reactform={form} label="GSTIN" placeholder="GSTIN" />
+            <FormInput name="billingClientDetails.state" reactform={form} label="State" placeholder="State" />
+            <FormInput
+              name="billingClientDetails.stateCode"
+              reactform={form}
+              label="State Code"
+              placeholder="State code"
+            />
+            <MetadataFields form={form} name="billingClientDetails.metadata" label="Billing Client Fields" />
           </div>
         </div>
         <div className="flex justify-end">
@@ -108,7 +124,7 @@ const DefaultDetailsForm = ({ defaultValues }: { defaultValues: ZodDefaultDetail
 
 interface MetadataFieldsProps {
   form: UseFormReturn<ZodDefaultDetailsSchema>;
-  name: "companyDetails.metadata" | "clientDetails.metadata";
+  name: "companyDetails.metadata" | "billingClientDetails.metadata";
   label: string;
 }
 

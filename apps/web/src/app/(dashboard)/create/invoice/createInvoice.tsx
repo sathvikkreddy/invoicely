@@ -29,9 +29,13 @@ const CreateInvoice = () => {
     );
   }
 
-  const { companyDetails: defaultCompany, clientDetails: defaultClient } = createInvoiceSchemaDefaultValues;
+  const {
+    companyDetails: defaultCompany,
+    billingClientDetails: defaultBillingClient,
+    shippingClientDetails: defaultShippingClient,
+  } = createInvoiceSchemaDefaultValues;
   const savedCompany = savedDetails?.companyDetails;
-  const savedClient = savedDetails?.clientDetails;
+  const savedBillingClient = savedDetails?.billingClientDetails;
 
   const defaultInvoice = {
     ...createInvoiceSchemaDefaultValues,
@@ -41,13 +45,25 @@ const CreateInvoice = () => {
       ...defaultCompany,
       name: savedCompany?.name || defaultCompany.name,
       address: savedCompany?.address || defaultCompany.address,
+      gstin: savedCompany?.gstin || defaultCompany.gstin,
+      state: savedCompany?.state || defaultCompany.state,
+      stateCode: savedCompany?.stateCode || defaultCompany.stateCode,
       metadata: savedCompany?.metadata?.length ? savedCompany.metadata : defaultCompany.metadata,
     },
-    clientDetails: {
-      ...defaultClient,
-      name: savedClient?.name || defaultClient.name,
-      address: savedClient?.address || defaultClient.address,
-      metadata: savedClient?.metadata?.length ? savedClient.metadata : defaultClient.metadata,
+    billingClientDetails: {
+      ...defaultBillingClient,
+      name: savedBillingClient?.name || defaultBillingClient.name,
+      address: savedBillingClient?.address || defaultBillingClient.address,
+      gstin: savedBillingClient?.gstin || defaultBillingClient.gstin,
+      state: savedBillingClient?.state || defaultBillingClient.state,
+      stateCode: savedBillingClient?.stateCode || defaultBillingClient.stateCode,
+      metadata: savedBillingClient?.metadata?.length ? savedBillingClient.metadata : defaultBillingClient.metadata,
+    },
+    shippingClientDetails: {
+      ...defaultShippingClient,
+      name: defaultShippingClient.name,
+      address: defaultShippingClient.address,
+      metadata: defaultShippingClient.metadata,
     },
     invoiceDetails: {
       ...createInvoiceSchemaDefaultValues.invoiceDetails,

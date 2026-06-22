@@ -2,7 +2,6 @@
 
 import { Alert, AlertButtonGroup, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { columnConfig, columns } from "@/components/table-columns/invoices";
-import { getAllInvoices } from "@/lib/indexdb-queries/invoice";
 import { DataTable } from "@/components/ui/data-table";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -20,16 +19,8 @@ const InvoicesPage = () => {
     enabled: !!session?.user, // Only fetch if user is logged in
   });
 
-  // Fetching Invoices from the LocalDB
-  const idbData = useQuery({
-    queryKey: ["idb-invoices"],
-    queryFn: getAllInvoices,
-  });
-
-  const isLoading = trpcData.isLoading || idbData.isLoading;
-
-  // Combine and ensure data is an array
-  const data = [...(trpcData.data ?? []), ...(idbData.data ?? [])];
+  const isLoading = trpcData.isLoading;
+  const data = trpcData.data ?? [];
 
   return (
     <div className="dash-page gap-4 p-4">

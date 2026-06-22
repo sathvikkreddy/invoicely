@@ -9,17 +9,23 @@ export const defaultDetailsSchema = z.object({
     {
       name: z.string({ invalid_type_error: "Company name must be a string" }),
       address: z.string({ invalid_type_error: "Address must be a string" }),
+      gstin: z.string({ invalid_type_error: "GSTIN must be a string" }),
+      state: z.string({ invalid_type_error: "State must be a string" }),
+      stateCode: z.string({ invalid_type_error: "State code must be a string" }),
       metadata: z.array(createInvoiceFieldKeyStringValuesSchema),
     },
     { invalid_type_error: "Company details must be an object" },
   ),
-  clientDetails: z.object(
+  billingClientDetails: z.object(
     {
       name: z.string({ invalid_type_error: "Client name must be a string" }),
       address: z.string({ invalid_type_error: "Address must be a string" }),
+      gstin: z.string({ invalid_type_error: "GSTIN must be a string" }),
+      state: z.string({ invalid_type_error: "State must be a string" }),
+      stateCode: z.string({ invalid_type_error: "State code must be a string" }),
       metadata: z.array(createInvoiceFieldKeyStringValuesSchema),
     },
-    { invalid_type_error: "Client details must be an object" },
+    { invalid_type_error: "Billing client details must be an object" },
   ),
 });
 
@@ -27,13 +33,24 @@ export type ZodDefaultDetailsSchema = z.infer<typeof defaultDetailsSchema>;
 
 export const defaultDetailsSchemaDefaultValues: ZodDefaultDetailsSchema = {
   companyDetails: {
-    name: "",
-    address: "",
-    metadata: [],
+    name: "SAI LAKSHMI NARASIMHA PACKAGINGS",
+    address: "21-690/7/A/1, Shivalayanagar,  Suraram , IDA Jeedimetla,  Hyderabad",
+    gstin: "36CVWPK4641J1ZX",
+    state: "Telangana",
+    stateCode: "36",
+    metadata: [
+      {
+        label: "Email",
+        value: "slnpackagings@gmail.com",
+      },
+    ],
   },
-  clientDetails: {
+  billingClientDetails: {
     name: "",
     address: "",
+    gstin: "",
+    state: "",
+    stateCode: "",
     metadata: [],
   },
 };

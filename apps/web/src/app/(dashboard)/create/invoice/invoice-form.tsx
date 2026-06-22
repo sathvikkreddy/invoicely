@@ -3,30 +3,37 @@
 import InvoiceFieldKeyStringValuesSection from "./invoiceHelpers/invoice-field-key-string-value-section";
 import InvoiceFieldKeyNumberValuesSection from "./invoiceHelpers/invoice-field-key-number-value-section";
 import { Accordion, AccordionItem, AccordionContent, AccordionTrigger } from "@/components/ui/accordion";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form/form";
 import SheetImageSelectorTrigger from "@/components/ui/image/sheet-image-selector-trigger";
 import { InvoiceImageSelectorSheet } from "./invoiceHelpers/invoice-image-selector-sheet";
 import { ZodCreateInvoiceSchema } from "@/zod-schemas/invoice/create-invoice";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { InvoiceTemplateSelector } from "./invoiceHelpers/invoice-templates";
 import { FormColorPicker } from "@/components/ui/form/form-color-picker";
 import InvoiceItemsSection from "./invoiceHelpers/invoice-items-section";
+import { ClientSuggestions } from "./invoiceHelpers/client-suggestions";
 import { FormDatePicker } from "@/components/ui/form/form-date-picker";
+import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "@/constants/issues";
 import { InvoiceFontSelector } from "./invoiceHelpers/invoice-fonts";
+import { getGstRatesForStateCodes } from "@/lib/invoice/gst-rates";
 import { getAllImages } from "@/lib/indexdb-queries/getAllImages";
 import { FormTextarea } from "@/components/ui/form/form-textarea";
 import { FormSelect } from "@/components/ui/form/form-select";
 import { currenciesWithSymbols } from "@/constants/currency";
 import { FormInput } from "@/components/ui/form/form-input";
+import { UseFormReturn, useWatch } from "react-hook-form";
 import FormRow from "@/components/ui/form/form-row";
 import { SelectItem } from "@/components/ui/select";
 import { useResizeObserver } from "@mantine/hooks";
-import { Form } from "@/components/ui/form/form";
-import { useQuery } from "@tanstack/react-query";
-import { UseFormReturn } from "react-hook-form";
+import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/client-auth";
 import { Badge } from "@/components/ui/badge";
 import { useTRPC } from "@/trpc/client";
+import { SaveIcon } from "lucide-react";
+import React, { useState } from "react";
 import { cn } from "@/lib/utils";
-import React from "react";
+import { toast } from "sonner";
 
 interface InvoiceFormProps {
   form: UseFormReturn<ZodCreateInvoiceSchema>;
@@ -34,9 +41,99 @@ interface InvoiceFormProps {
 
 const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const [resizeRef, container] = useResizeObserver();
+  const [billingNameSuggestionsOpen, setBillingNameSuggestionsOpen] = useState(false);
+  const [billingGstinSuggestionsOpen, setBillingGstinSuggestionsOpen] = useState(false);
 
   const { data: session } = useSession();
+  const sameAsBilling = useWatch({ control: form.control, name: "shippingClientDetails.sameAsBilling" });
+  const billingName = useWatch({ control: form.control, name: "billingClientDetails.name" });
+  const billingGstin = useWatch({ control: form.control, name: "billingClientDetails.gstin" });
+  const companyLogo = useWatch({ control: form.control, name: "companyDetails.logo" });
+  const companySignature = useWatch({ control: form.control, name: "companyDetails.signature" });
+  const invoiceTemplate = useWatch({ control: form.control, name: "invoiceDetails.theme.template" });
+
+  const copyBillingToShipping = () => {
+    form.setValue(
+      "shippingClientDetails",
+      {
+        ...form.getValues("billingClientDetails"),
+        sameAsBilling: true,
+      },
+      {
+        shouldDirty: true,
+        shouldTouch: false,
+        shouldValidate: true,
+      },
+    );
+  };
+  const applyGstRatesToItems = (companyStateCode: string, billingStateCode: string) => {
+    const gstRates = getGstRatesForStateCodes(companyStateCode, billingStateCode);
+    const items = form.getValues("items");
+    const hasMismatchedRates = items.some(
+      (item) =>
+        item.cgstRate !== gstRates.cgstRate ||
+        item.sgstRate !== gstRates.sgstRate ||
+        item.igstRate !== gstRates.igstRate,
+    );
+
+    if (!hasMismatchedRates) return;
+
+    form.setValue(
+      "items",
+      items.map((item) => ({
+        ...item,
+        cgstRate: gstRates.cgstRate,
+        sgstRate: gstRates.sgstRate,
+        igstRate: gstRates.igstRate,
+      })),
+      {
+        shouldDirty: true,
+        shouldTouch: false,
+        shouldValidate: true,
+      },
+    );
+  };
+  const getClientSuggestions = (search: string) => {
+    const normalizedSearch = search.trim().toLowerCase();
+
+    if (!normalizedSearch) return clients.data ?? [];
+
+    return (clients.data ?? []).filter(
+      (client) =>
+        client.billingName.toLowerCase().includes(normalizedSearch) ||
+        client.billingGstin.toLowerCase().includes(normalizedSearch),
+    );
+  };
+  const handleSaveClient = async () => {
+    const billingIsValid = await form.trigger(["billingClientDetails", "shippingClientDetails"], { shouldFocus: true });
+    if (!billingIsValid) return;
+
+    const billingClient = form.getValues("billingClientDetails");
+    const shippingClient = form.getValues("shippingClientDetails.sameAsBilling")
+      ? {
+          ...billingClient,
+          sameAsBilling: true,
+        }
+      : form.getValues("shippingClientDetails");
+
+    saveClient.mutate({
+      billingName: billingClient.name,
+      billingAddress: billingClient.address,
+      billingGstin: billingClient.gstin,
+      billingState: billingClient.state,
+      billingStateCode: billingClient.stateCode,
+      billingMetadata: billingClient.metadata,
+      sameAsBilling: shippingClient.sameAsBilling,
+      shippingName: shippingClient.name,
+      shippingAddress: shippingClient.address,
+      shippingGstin: shippingClient.gstin,
+      shippingState: shippingClient.state,
+      shippingStateCode: shippingClient.stateCode,
+      shippingMetadata: shippingClient.metadata,
+    });
+  };
 
   // fetching images from indexedDB
   const idbImages = useQuery({
@@ -47,6 +144,22 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
   const serverImages = useQuery({
     ...trpc.cloudflare.listImages.queryOptions(),
     enabled: !!session?.user,
+  });
+  const clients = useQuery({
+    ...trpc.client.list.queryOptions(),
+    enabled: !!session?.user,
+  });
+  const saveClient = useMutation({
+    ...trpc.client.upsert.mutationOptions(),
+    onSuccess: () => {
+      toast.success(SUCCESS_MESSAGES.TOAST_DEFAULT_TITLE, { description: SUCCESS_MESSAGES.CLIENT_SAVED });
+      queryClient.invalidateQueries({ queryKey: trpc.client.list.queryKey() });
+    },
+    onError: (error) => {
+      toast.error(ERROR_MESSAGES.DEFAULT, {
+        description: ERROR_MESSAGES.DATABASE_ERROR,
+      });
+    },
   });
 
   return (
@@ -60,7 +173,12 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
               <InvoiceTemplateSelector form={form} />
             </div>
           </div>
-          <Accordion type="single" collapsible defaultValue="company-details" className="w-full divide-y border-b">
+          <Accordion
+            type="single"
+            collapsible
+            defaultValue="billing-client-details"
+            className="w-full divide-y border-b"
+          >
             {/* Company Details */}
             <AccordionItem value="company-details">
               <AccordionTrigger>Company Details</AccordionTrigger>
@@ -81,7 +199,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
                   >
                     <SheetImageSelectorTrigger
                       type="logo"
-                      previewUrl={form.watch("companyDetails.logo") ?? undefined}
+                      previewUrl={companyLogo ?? undefined}
                       onRemove={() => {
                         form.setValue("companyDetails.logo", "");
                         form.setValue("companyDetails.logoBase64", undefined);
@@ -104,7 +222,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
                   >
                     <SheetImageSelectorTrigger
                       type="signature"
-                      previewUrl={form.watch("companyDetails.signature") ?? undefined}
+                      previewUrl={companySignature ?? undefined}
                       onRemove={() => {
                         form.setValue("companyDetails.signature", "");
                         form.setValue("companyDetails.signatureBase64", undefined);
@@ -128,6 +246,22 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
                     reactform={form}
                     placeholder="123 Business St, City, Country"
                   />
+                  <FormRow>
+                    <FormInput name="companyDetails.gstin" label="GSTIN" reactform={form} placeholder="GSTIN" />
+                    <FormInput name="companyDetails.state" label="State" reactform={form} placeholder="State" />
+                    <FormInput
+                      name="companyDetails.stateCode"
+                      label="State Code"
+                      reactform={form}
+                      placeholder="State code"
+                      onChange={(event) =>
+                        applyGstRatesToItems(
+                          event.currentTarget.value,
+                          form.getValues("billingClientDetails.stateCode"),
+                        )
+                      }
+                    />
+                  </FormRow>
                   <InvoiceFieldKeyStringValuesSection
                     reactform={form}
                     name="companyDetails.metadata"
@@ -136,23 +270,146 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
                 </div>
               </AccordionContent>
             </AccordionItem>
-            {/* Client Details */}
-            <AccordionItem value="client-details">
-              <AccordionTrigger>Client Details</AccordionTrigger>
+            {/* Billing Client Details */}
+            <AccordionItem value="billing-client-details">
+              <AccordionTrigger>Billing Client Details</AccordionTrigger>
               <AccordionContent>
-                <FormInput name="clientDetails.name" label="Client Name" reactform={form} placeholder="John Doe" />
+                <ClientSuggestions
+                  clients={getClientSuggestions(billingName)}
+                  enabled={!!session?.user}
+                  form={form}
+                  open={billingNameSuggestionsOpen}
+                  selectedGstin={billingGstin}
+                  setOpen={setBillingNameSuggestionsOpen}
+                >
+                  <FormInput
+                    name="billingClientDetails.name"
+                    label="Billing Client Name"
+                    reactform={form}
+                    placeholder="John Doe"
+                    onFocus={() => setBillingNameSuggestionsOpen(true)}
+                    onChange={() => setBillingNameSuggestionsOpen(true)}
+                  />
+                </ClientSuggestions>
                 <FormTextarea
                   className="h-20"
-                  name="clientDetails.address"
-                  label="Client Address"
+                  name="billingClientDetails.address"
+                  label="Billing Address"
                   reactform={form}
                   placeholder="456 Client St, City, Country"
                 />
+                <FormRow>
+                  <ClientSuggestions
+                    clients={getClientSuggestions(billingGstin)}
+                    enabled={!!session?.user}
+                    form={form}
+                    open={billingGstinSuggestionsOpen}
+                    selectedGstin={billingGstin}
+                    setOpen={setBillingGstinSuggestionsOpen}
+                  >
+                    <FormInput
+                      name="billingClientDetails.gstin"
+                      label="GSTIN"
+                      reactform={form}
+                      placeholder="GSTIN"
+                      onFocus={() => setBillingGstinSuggestionsOpen(true)}
+                      onChange={() => setBillingGstinSuggestionsOpen(true)}
+                    />
+                  </ClientSuggestions>
+                  <FormInput name="billingClientDetails.state" label="State" reactform={form} placeholder="State" />
+                  <FormInput
+                    name="billingClientDetails.stateCode"
+                    label="State Code"
+                    reactform={form}
+                    placeholder="State code"
+                    onChange={(event) =>
+                      applyGstRatesToItems(form.getValues("companyDetails.stateCode"), event.currentTarget.value)
+                    }
+                  />
+                </FormRow>
                 <InvoiceFieldKeyStringValuesSection
                   reactform={form}
-                  name="clientDetails.metadata"
-                  label="Client Fields"
+                  name="billingClientDetails.metadata"
+                  label="Billing Client Fields"
                 />
+                {session?.user && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSaveClient}
+                    disabled={saveClient.isPending}
+                    className="w-full"
+                  >
+                    <SaveIcon />
+                    Save Client
+                  </Button>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+            {/* Shipping Client Details */}
+            <AccordionItem value="shipping-client-details">
+              <AccordionTrigger>Shipping Client Details</AccordionTrigger>
+              <AccordionContent>
+                <FormField
+                  control={form.control}
+                  name="shippingClientDetails.sameAsBilling"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-md border p-3">
+                      <FormLabel>Same as billing</FormLabel>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={(checked) => {
+                            field.onChange(checked);
+                            if (checked) copyBillingToShipping();
+                          }}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                {!sameAsBilling && (
+                  <>
+                    <FormInput
+                      name="shippingClientDetails.name"
+                      label="Shipping Client Name"
+                      reactform={form}
+                      placeholder="John Doe"
+                    />
+                    <FormTextarea
+                      className="h-20"
+                      name="shippingClientDetails.address"
+                      label="Shipping Address"
+                      reactform={form}
+                      placeholder="456 Shipping St, City, Country"
+                    />
+                    <FormRow>
+                      <FormInput
+                        name="shippingClientDetails.gstin"
+                        label="GSTIN"
+                        reactform={form}
+                        placeholder="GSTIN"
+                      />
+                      <FormInput
+                        name="shippingClientDetails.state"
+                        label="State"
+                        reactform={form}
+                        placeholder="State"
+                      />
+                      <FormInput
+                        name="shippingClientDetails.stateCode"
+                        label="State Code"
+                        reactform={form}
+                        placeholder="State code"
+                      />
+                    </FormRow>
+                    <InvoiceFieldKeyStringValuesSection
+                      reactform={form}
+                      name="shippingClientDetails.metadata"
+                      label="Shipping Client Fields"
+                    />
+                  </>
+                )}
               </AccordionContent>
             </AccordionItem>
             {/* Invoice Details */}
@@ -176,7 +433,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
                       </SelectItem>
                     ))}
                   </FormSelect>
-                  {form.watch("invoiceDetails.theme.template") !== "vercel" && (
+                  {invoiceTemplate !== "vercel" && (
                     <>
                       <FormSelect
                         name="invoiceDetails.theme.mode"
@@ -240,6 +497,22 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
                   description="Terms of payment"
                   isOptional={true}
                 />
+                <FormRow>
+                  <FormInput
+                    name="invoiceDetails.poNumber"
+                    label="PO Number"
+                    reactform={form}
+                    placeholder="PO number"
+                    isOptional={true}
+                  />
+                  <FormInput
+                    name="invoiceDetails.eWaybillNumber"
+                    label="E-waybill Number"
+                    reactform={form}
+                    placeholder="E-waybill number"
+                    isOptional={true}
+                  />
+                </FormRow>
                 <InvoiceFieldKeyNumberValuesSection
                   reactform={form}
                   name="invoiceDetails.billingDetails"

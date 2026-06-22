@@ -25,6 +25,7 @@ interface FormInputProps<
   description?: string | undefined;
   reactform: UseFormReturn<TFieldValues>;
   sublabel?: string | undefined;
+  fieldClassName?: string;
   isOptional?: boolean;
 }
 
@@ -33,6 +34,7 @@ export const FormInput = <
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
 >({
   className,
+  fieldClassName,
   isOptional = false,
   ...props
 }: FormInputProps<TFieldValues, TName>) => {
@@ -45,7 +47,7 @@ export const FormInput = <
         const { error } = useFormField();
 
         return (
-          <FormItem className="w-full">
+          <FormItem className={cn("w-full", fieldClassName)}>
             {props.label ? (
               <FormLabel className="flex items-center">
                 <span className="text-xs capitalize">{props.label}</span>
@@ -73,6 +75,7 @@ export const FormInput = <
                   } else {
                     field.onChange(e);
                   }
+                  props.onChange?.(e);
                 }}
               />
             </FormControl>

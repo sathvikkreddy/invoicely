@@ -20,4 +20,5 @@ export const enum SUCCESS_MESSAGES {
   INVOICE_MIGRATED_DESCRIPTION = "Your local invoice has been saved to the database.",
   DEFAULT_DETAILS_SAVED = "Default details saved",
   DEFAULT_DETAILS_SAVED_DESCRIPTION = "These details will pre-fill your new invoices.",
+  CLIENT_SAVED = "Client saved to db successfully",
 }

@@ -15,7 +15,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { importInvoiceColumnConfig, importInvoiceColumns } from "@/components/table-columns/invoices";
-import { getAllInvoices } from "@/lib/indexdb-queries/invoice";
 import { DataTable } from "@/components/ui/data-table";
 import { InboxArrowDownIcon } from "@/assets/icons";
 import { Invoice } from "@/types/common/invoice";
@@ -35,32 +34,10 @@ const ImportInvoice = ({ form }: { form: UseFormReturn<ZodCreateInvoiceSchema> }
     enabled: !!session?.user, // Only fetch if user is logged in
   });
 
-  // Fetching Invoices from the LocalDB
-  const idbData = useQuery({
-    queryKey: ["idb-invoices"],
-    queryFn: getAllInvoices,
-  });
-
-  const isLoading = trpcData.isLoading || idbData.isLoading;
-
-  // Combine and ensure data is an array
-  const data = [...(trpcData.data ?? []), ...(idbData.data ?? [])];
+  const isLoading = trpcData.isLoading;
+  const data = trpcData.data ?? [];
 
   const handleRowClick = (invoice: Invoice) => {
-    if (invoice.type === "local") {
-      // we need to convert image url and sig url to local base64
-      const invoiceFields = invoice.invoiceFields;
-      const imageBase64 = invoiceFields.companyDetails.logoBase64;
-      const sigBase64 = invoiceFields.companyDetails.signatureBase64;
-
-      if (!invoiceFields.companyDetails.logo?.startsWith("https://")) {
-        invoiceFields.companyDetails.logo = imageBase64;
-      }
-      if (!invoiceFields.companyDetails.signature?.startsWith("https://")) {
-        invoiceFields.companyDetails.signature = sigBase64;
-      }
-    }
-
     // Reset form field to imported invoice
     form.reset(invoice.invoiceFields);
     setOpen(false);

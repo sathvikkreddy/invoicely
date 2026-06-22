@@ -22,6 +22,9 @@ export const listInvoices = authorizedProcedure.query(async ({ ctx }) => {
         items: invoice.invoiceFields.items.map((item) => ({
           ...item,
           unitPrice: item.unitPrice.toNumber(),
+          cgstRate: item.cgstRate.toNumber(),
+          sgstRate: item.sgstRate.toNumber(),
+          igstRate: item.igstRate.toNumber(),
         })),
         invoiceDetails: {
           ...invoice.invoiceFields.invoiceDetails,

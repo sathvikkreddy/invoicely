@@ -1,7 +1,6 @@
-import { invoiceTypeEnum } from "@invoicely/db/schema/invoice";
 import { z } from "zod";
 
 export const EditInvoicePageSchema = z.object({
-  type: z.enum(invoiceTypeEnum.enumValues),
+  type: z.literal("server"),
   id: z.string().uuid(),
 });

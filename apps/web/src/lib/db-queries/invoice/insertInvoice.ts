@@ -1,5 +1,6 @@
 import { ZodCreateInvoiceSchema } from "@/zod-schemas/invoice/create-invoice";
 import type { InvoiceStatusType } from "@invoicely/db/schema/invoice";
+import { getInvoiceTotals } from "@/constants/pdf-helpers";
 import { ERROR_MESSAGES } from "@/constants/issues";
 import { db, schema } from "@invoicely/db";
 import { v4 as uuidv4 } from "uuid";
@@ -16,12 +17,19 @@ export const insertInvoiceQuery = async (
   id?: string,
   options?: InsertInvoiceOptions,
 ) => {
+  getInvoiceTotals(invoice);
+  const shippingClientDetails = invoice.shippingClientDetails.sameAsBilling
+    ? {
+        ...invoice.billingClientDetails,
+        sameAsBilling: true,
+      }
+    : invoice.shippingClientDetails;
+
   // Inserting invoice in db
   const [insertedInvoice] = await db
     .insert(schema.invoices)
     .values({
       id: id ?? uuidv4(),
-      type: "server",
       status: options?.status ?? "pending",
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -58,6 +66,9 @@ export const insertInvoiceQuery = async (
       id: uuidv4(),
       name: invoice.companyDetails.name,
       address: invoice.companyDetails.address,
+      gstin: invoice.companyDetails.gstin,
+      state: invoice.companyDetails.state,
+      stateCode: invoice.companyDetails.stateCode,
       invoiceFieldId: insertedInvoiceField.id,
       logo: invoice.companyDetails.logo,
       signature: invoice.companyDetails.signature,
@@ -82,31 +93,67 @@ export const insertInvoiceQuery = async (
     );
   }
 
-  // Inserting client details in db
-  const [insertedClientDetails] = await db
-    .insert(schema.invoiceClientDetails)
+  // Inserting billing client details in db
+  const [insertedBillingClientDetails] = await db
+    .insert(schema.invoiceBillingClientDetails)
     .values({
       id: uuidv4(),
-      name: invoice.clientDetails.name,
-      address: invoice.clientDetails.address,
+      name: invoice.billingClientDetails.name,
+      address: invoice.billingClientDetails.address,
+      gstin: invoice.billingClientDetails.gstin,
+      state: invoice.billingClientDetails.state,
+      stateCode: invoice.billingClientDetails.stateCode,
       invoiceFieldId: insertedInvoiceField.id,
     })
     .returning({
-      id: schema.invoiceClientDetails.id,
+      id: schema.invoiceBillingClientDetails.id,
     });
 
-  if (!insertedClientDetails) {
-    throw new Error(ERROR_MESSAGES.FAILED_TO_INSERT_DATA + "~ client details record");
+  if (!insertedBillingClientDetails) {
+    throw new Error(ERROR_MESSAGES.FAILED_TO_INSERT_DATA + "~ billing client details record");
   }
 
-  // Inserting client details metadata in db
-  if (invoice.clientDetails.metadata.length > 0) {
-    await db.insert(schema.invoiceClientDetailsMetadata).values(
-      invoice.clientDetails.metadata.map((metadata) => ({
+  // Inserting billing client details metadata in db
+  if (invoice.billingClientDetails.metadata.length > 0) {
+    await db.insert(schema.invoiceBillingClientDetailsMetadata).values(
+      invoice.billingClientDetails.metadata.map((metadata) => ({
         id: uuidv4(),
         label: metadata.label,
         value: metadata.value,
-        invoiceClientDetailsId: insertedClientDetails.id,
+        invoiceBillingClientDetailsId: insertedBillingClientDetails.id,
+      })),
+    );
+  }
+
+  // Inserting shipping client details in db
+  const [insertedShippingClientDetails] = await db
+    .insert(schema.invoiceShippingClientDetails)
+    .values({
+      id: uuidv4(),
+      sameAsBilling: shippingClientDetails.sameAsBilling,
+      name: shippingClientDetails.name,
+      address: shippingClientDetails.address,
+      gstin: shippingClientDetails.gstin,
+      state: shippingClientDetails.state,
+      stateCode: shippingClientDetails.stateCode,
+      invoiceFieldId: insertedInvoiceField.id,
+    })
+    .returning({
+      id: schema.invoiceShippingClientDetails.id,
+    });
+
+  if (!insertedShippingClientDetails) {
+    throw new Error(ERROR_MESSAGES.FAILED_TO_INSERT_DATA + "~ shipping client details record");
+  }
+
+  // Inserting shipping client details metadata in db
+  if (shippingClientDetails.metadata.length > 0) {
+    await db.insert(schema.invoiceShippingClientDetailsMetadata).values(
+      shippingClientDetails.metadata.map((metadata) => ({
+        id: uuidv4(),
+        label: metadata.label,
+        value: metadata.value,
+        invoiceShippingClientDetailsId: insertedShippingClientDetails.id,
       })),
     );
   }
@@ -121,6 +168,8 @@ export const insertInvoiceQuery = async (
       serialNumber: invoice.invoiceDetails.serialNumber,
       date: invoice.invoiceDetails.date,
       dueDate: invoice.invoiceDetails.dueDate,
+      poNumber: invoice.invoiceDetails.poNumber,
+      eWaybillNumber: invoice.invoiceDetails.eWaybillNumber,
       paymentTerms: invoice.invoiceDetails.paymentTerms,
       theme: invoice.invoiceDetails.theme,
       invoiceFieldId: insertedInvoiceField.id,
@@ -148,16 +197,41 @@ export const insertInvoiceQuery = async (
 
   // Inserting invoice items in db
   if (invoice.items.length > 0) {
-    await db.insert(schema.invoiceItems).values(
-      invoice.items.map((item) => ({
-        id: uuidv4(),
-        description: item.description,
-        name: item.name,
-        quantity: item.quantity,
-        unitPrice: new Decimal(item.unitPrice),
-        invoiceFieldId: insertedInvoiceField.id,
-      })),
-    );
+    for (const item of invoice.items) {
+      const [insertedItem] = await db
+        .insert(schema.invoiceItems)
+        .values({
+          id: uuidv4(),
+          description: item.description,
+          hsnSac: item.hsnSac,
+          name: item.name,
+          quantity: item.quantity,
+          units: item.units,
+          unitPrice: new Decimal(item.unitPrice),
+          cgstRate: new Decimal(item.cgstRate ?? 0),
+          sgstRate: new Decimal(item.sgstRate ?? 0),
+          igstRate: new Decimal(item.igstRate ?? 0),
+          invoiceFieldId: insertedInvoiceField.id,
+        })
+        .returning({
+          id: schema.invoiceItems.id,
+        });
+
+      if (!insertedItem) {
+        throw new Error(ERROR_MESSAGES.FAILED_TO_INSERT_DATA + "~ invoice item record");
+      }
+
+      if (item.metadata.length > 0) {
+        await db.insert(schema.invoiceItemMetadata).values(
+          item.metadata.map((metadata) => ({
+            id: uuidv4(),
+            label: metadata.label,
+            value: metadata.value,
+            invoiceItemId: insertedItem.id,
+          })),
+        );
+      }
+    }
   }
 
   // Inserting invoice metadata in db

@@ -30,6 +30,8 @@ const InvoicePage = ({ defaultInvoice }: { defaultInvoice?: Invoice["invoiceFiel
   const form = useForm<ZodCreateInvoiceSchema>({
     resolver: zodResolver(createInvoiceSchema),
     defaultValues: defaultInvoice || createInvoiceSchemaDefaultValues,
+    mode: "onBlur",
+    reValidateMode: "onBlur",
   });
 
   // Collapse or expand the panels based on the invoiceTab value

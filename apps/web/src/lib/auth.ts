@@ -15,15 +15,6 @@ export const serverAuth = betterAuth({
   },
   user: {
     modelName: "users",
-    additionalFields: {
-      allowedSavingData: {
-        type: "boolean",
-        required: false,
-        defaultValue: false,
-        fieldName: "allowedSavingData",
-        returned: true,
-      },
-    },
   },
   account: {
     modelName: "accounts",

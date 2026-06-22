@@ -28,11 +28,6 @@ export const uploadImageFile = authorizedProcedure
 
     // Upload Image Effect
     const uploadImageEffect = Effect.gen(function* () {
-      // Check if the user is allowed to save data
-      if (!ctx.auth.user.allowedSavingData) {
-        return yield* new ForbiddenError({ message: ERROR_MESSAGES.NOT_ALLOWED_TO_SAVE_DATA });
-      }
-
       // Getting the number of images the user has uploaded
       const userImagesCount = yield* Effect.tryPromise({
         try: () => getUserImagesCount(ctx.s3, userId),
@@ -80,7 +75,6 @@ export const uploadImageFile = authorizedProcedure
     return Effect.runPromise(
       uploadImageEffect.pipe(
         Effect.catchTags({
-          // If the user is not allowed to save data, return a forbidden error
           ForbiddenError: (error) => Effect.fail(new TRPCError({ code: "FORBIDDEN", message: error.message })),
           // If the image is too large, return a payload too large error
           PayloadTooLargeError: (error) =>

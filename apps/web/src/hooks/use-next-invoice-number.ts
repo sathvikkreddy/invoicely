@@ -1,7 +1,6 @@
 "use client";
 
 import { getNextInvoiceNumber } from "@/lib/invoice/get-next-invoice-number";
-import { getAllInvoices } from "@/lib/indexdb-queries/invoice";
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "@/lib/client-auth";
 import { useTRPC } from "@/trpc/client";
@@ -17,17 +16,11 @@ export function useNextInvoiceNumber() {
     enabled: !!session?.user,
   });
 
-  // Local invoices (IndexedDB)
-  const localInvoices = useQuery({
-    queryKey: ["idb-invoices"],
-    queryFn: getAllInvoices,
-  });
-
-  const isLoading = serverInvoices.isLoading || localInvoices.isLoading;
+  const isLoading = serverInvoices.isLoading;
 
   const nextInvoiceNumber = useMemo(
-    () => getNextInvoiceNumber([...(serverInvoices.data ?? []), ...(localInvoices.data ?? [])]),
-    [serverInvoices.data, localInvoices.data],
+    () => getNextInvoiceNumber([...(serverInvoices.data ?? [])]),
+    [serverInvoices.data],
   );
 
   return { nextInvoiceNumber, isLoading };

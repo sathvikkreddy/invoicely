@@ -1,7 +1,7 @@
 import { uploadImage as uploadImageToIndexedDB } from "@/lib/indexdb-queries/uploadImage";
 import SignatureInputModal from "@/components/ui/image/signature-input-modal";
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "@/constants/issues";
-import type { InvoiceTypeType } from "@invoicely/db/schema/invoice";
+import type { AssetStorageType } from "@/types/common/invoice";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { asyncTryCatch } from "@/lib/neverthrow/tryCatch";
 import { useSession } from "@/lib/client-auth";
@@ -9,7 +9,7 @@ import { useTRPC } from "@/trpc/client";
 import { toast } from "sonner";
 import React from "react";
 
-const UploadSignatureAsset = ({ disableIcon = false, type }: { disableIcon?: boolean; type: InvoiceTypeType }) => {
+const UploadSignatureAsset = ({ disableIcon = false, type }: { disableIcon?: boolean; type: AssetStorageType }) => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const { data: session } = useSession();
@@ -33,7 +33,7 @@ const UploadSignatureAsset = ({ disableIcon = false, type }: { disableIcon?: boo
   const handleBase64Change = async (base64: string | undefined) => {
     if (!base64) return;
 
-    if (type === "server" && session && session.user.allowedSavingData) {
+    if (type === "server" && session) {
       uploadImage.mutate({
         type: "signature",
         base64: base64,

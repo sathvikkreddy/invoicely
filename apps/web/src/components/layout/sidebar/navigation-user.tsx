@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronsUpDown, InfoIcon, LogOut } from "lucide-react";
+import { ChevronsUpDown, LogOut } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -18,14 +18,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { clientAuth, useSession } from "@/lib/client-auth";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import LogoIcon from "@/components/assets/logo-icon";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MiniSwitch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { useMounted } from "@mantine/hooks";
 import { useState } from "react";
@@ -58,9 +56,6 @@ export function NavigationUser() {
 
   return (
     <SidebarMenu>
-      <SidebarMenuItem>
-        <AllowDataSync defaultChecked={session.data.user.allowedSavingData ?? false} />
-      </SidebarMenuItem>
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -174,49 +169,5 @@ const LoginButtonModal = () => {
         </DialogContentContainer>
       </DialogContent>
     </Dialog>
-  );
-};
-
-const AllowDataSync = ({ defaultChecked }: { defaultChecked: boolean }) => {
-  const [isDisabled, setIsDisabled] = useState(false);
-  const [isChecked, setIsChecked] = useState(defaultChecked);
-  const router = useRouter();
-
-  const handleChange = (checked: boolean) => {
-    setIsDisabled(true);
-
-    clientAuth.updateUser({
-      allowedSavingData: checked,
-      fetchOptions: {
-        onSuccess: () => {
-          setIsChecked(checked);
-          setIsDisabled(false);
-          // refetch page
-          router.refresh();
-        },
-      },
-    });
-  };
-
-  return (
-    <div className="bg-muted-foreground/10 mb-2 flex w-full flex-row items-center justify-between rounded-md p-2">
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger>
-            <div className="flex flex-row items-center justify-between gap-1.5 text-xs">
-              Allow Data Sync <InfoIcon className="text-muted-foreground size-3" />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent align="start" sideOffset={6}>
-            <p>
-              Allow data sync to your account. <br />
-              This will allow us to save your data on
-              <br /> our servers.
-            </p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-      <MiniSwitch disabled={isDisabled} defaultChecked={isChecked} onCheckedChange={handleChange} />
-    </div>
   );
 };

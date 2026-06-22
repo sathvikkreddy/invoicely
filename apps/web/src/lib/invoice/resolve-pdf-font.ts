@@ -7,18 +7,19 @@ import { Font } from "@react-pdf/renderer";
 const CJK_REGEX = /[⺀-鿿豈-﫿＀-￯]/;
 
 function collectInvoiceText(data: ZodCreateInvoiceSchema): string {
-  const { companyDetails, clientDetails, metadata, items, invoiceDetails } = data;
+  const { companyDetails, billingClientDetails, shippingClientDetails, metadata, items, invoiceDetails } = data;
 
   const parts = [
     companyDetails.name,
     companyDetails.address,
-    clientDetails.name,
-    clientDetails.address,
+    billingClientDetails.name,
+    shippingClientDetails.name,
     metadata.notes,
     metadata.terms,
     invoiceDetails.paymentTerms,
     ...companyDetails.metadata.flatMap((field) => [field.label, field.value]),
-    ...clientDetails.metadata.flatMap((field) => [field.label, field.value]),
+    ...billingClientDetails.metadata.flatMap((field) => [field.label, field.value]),
+    ...shippingClientDetails.metadata.flatMap((field) => [field.label, field.value]),
     ...metadata.paymentInformation.flatMap((field) => [field.label, field.value]),
     ...invoiceDetails.billingDetails.map((billing) => billing.label),
     ...items.flatMap((item) => [item.name, item.description]),
