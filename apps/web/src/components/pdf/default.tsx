@@ -248,7 +248,10 @@ const DefaultPDF: React.FC<{ data: ZodCreateInvoiceSchema }> = ({ data }) => {
               >
                 <View style={tw("flex flex-col gap-1 w-[38%]")}>
                   <Text style={tw("w-full text-sm font-semibold")}>{item.name}</Text>
-                  <Text style={tw("text-xs font-normal text-neutral-600")}>{item.description}</Text>
+                  <Text style={tw("text-xs font-normal text-neutral-600")}>{item.description1}</Text>
+                  {item.description2 ? (
+                    <Text style={tw("text-xs font-normal text-neutral-600")}>{item.description2}</Text>
+                  ) : null}
                   {item.metadata.map((metadata) => (
                     <Text key={metadata.label} style={tw("text-xs font-normal text-neutral-600")}>
                       {metadata.label}: {metadata.value}

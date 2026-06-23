@@ -24,8 +24,11 @@ export const createInvoiceItemSchema = z.object(
     name: z
       .string({ invalid_type_error: "Item name must be a string" })
       .min(1, { message: "Item name cannot be empty" }),
-    description: z.string({
-      invalid_type_error: "Item description must be a string",
+    description1: z.string({
+      invalid_type_error: "Item description 1 must be a string",
+    }),
+    description2: z.string({
+      invalid_type_error: "Item description 2 must be a string",
     }),
     quantity: z.coerce
       .number({ invalid_type_error: "Quantity must be a number" })
@@ -223,7 +226,8 @@ export const createInvoiceSchemaDefaultValues: ZodCreateInvoiceSchema = {
   items: [
     {
       name: "HDPE PP WOVEN SACKS",
-      description: "Printing Bags",
+      description1: "Printing Bags",
+      description2: "",
       quantity: 1000,
       units: "Nos",
       unitPrice: 15,

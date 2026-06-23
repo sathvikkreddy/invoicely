@@ -25,13 +25,13 @@ import { UseFormReturn, useWatch } from "react-hook-form";
 import FormRow from "@/components/ui/form/form-row";
 import { SelectItem } from "@/components/ui/select";
 import { useResizeObserver } from "@mantine/hooks";
+import React, { useMemo, useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/client-auth";
 import { Badge } from "@/components/ui/badge";
 import { useTRPC } from "@/trpc/client";
 import { SaveIcon } from "lucide-react";
-import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -50,6 +50,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
   const sameAsBilling = useWatch({ control: form.control, name: "shippingClientDetails.sameAsBilling" });
   const billingName = useWatch({ control: form.control, name: "billingClientDetails.name" });
   const billingGstin = useWatch({ control: form.control, name: "billingClientDetails.gstin" });
+  const billingAddress = useWatch({ control: form.control, name: "billingClientDetails.address" });
   const companyLogo = useWatch({ control: form.control, name: "companyDetails.logo" });
   const companySignature = useWatch({ control: form.control, name: "companyDetails.signature" });
   const invoiceTemplate = useWatch({ control: form.control, name: "invoiceDetails.theme.template" });
@@ -149,13 +150,46 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
     ...trpc.client.list.queryOptions(),
     enabled: !!session?.user,
   });
+  const invoices = useQuery({
+    ...trpc.invoice.list.queryOptions(),
+    enabled: !!session?.user,
+  });
+  const itemSuggestions = useMemo(() => {
+    const normalizedBillingGstin = billingGstin.trim().toLowerCase();
+    const normalizedBillingName = billingName.trim().toLowerCase();
+    const normalizedBillingAddress = billingAddress.trim().toLowerCase();
+
+    if (!session?.user || (!normalizedBillingGstin && !normalizedBillingName)) return [];
+
+    const matchingItems = (invoices.data ?? [])
+      .filter((invoice) => {
+        const invoiceBillingClient = invoice.invoiceFields.billingClientDetails;
+        const invoiceBillingGstin = invoiceBillingClient.gstin.trim().toLowerCase();
+
+        if (normalizedBillingGstin && invoiceBillingGstin) {
+          return invoiceBillingGstin === normalizedBillingGstin;
+        }
+
+        return (
+          invoiceBillingClient.name.trim().toLowerCase() === normalizedBillingName &&
+          invoiceBillingClient.address.trim().toLowerCase() === normalizedBillingAddress
+        );
+      })
+      .flatMap((invoice) => invoice.invoiceFields.items);
+
+    return Array.from(
+      new Map(
+        matchingItems.map((item) => [`${item.name}|${item.description1}|${item.description2}|${item.unitPrice}`, item]),
+      ).values(),
+    );
+  }, [billingAddress, billingGstin, billingName, invoices.data, session?.user]);
   const saveClient = useMutation({
     ...trpc.client.upsert.mutationOptions(),
     onSuccess: () => {
       toast.success(SUCCESS_MESSAGES.TOAST_DEFAULT_TITLE, { description: SUCCESS_MESSAGES.CLIENT_SAVED });
       queryClient.invalidateQueries({ queryKey: trpc.client.list.queryKey() });
     },
-    onError: (error) => {
+    onError: () => {
       toast.error(ERROR_MESSAGES.DEFAULT, {
         description: ERROR_MESSAGES.DATABASE_ERROR,
       });
@@ -524,7 +558,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
             <AccordionItem value="invoice-items">
               <AccordionTrigger>Invoice Items</AccordionTrigger>
               <AccordionContent>
-                <InvoiceItemsSection form={form} />
+                <InvoiceItemsSection form={form} itemSuggestions={itemSuggestions} />
               </AccordionContent>
             </AccordionItem>
             {/* Additional Information */}

@@ -13,10 +13,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { createInvoiceItemSchema, ZodCreateInvoiceSchema } from "@/zod-schemas/invoice/create-invoice";
 import { getGstRatesForStateCodes, type GstRates } from "@/lib/invoice/gst-rates";
 import { useFieldArray, useForm, UseFormReturn, useWatch } from "react-hook-form";
-import { CopyIcon, GripVerticalIcon, PencilIcon } from "lucide-react";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { CheckIcon, CopyIcon, GripVerticalIcon, PencilIcon } from "lucide-react";
 import { BoxIcon, BoxPlusIcon, TrashIcon } from "@/assets/icons";
 import { FormInput } from "@/components/ui/form/form-input";
 import { getInvoiceTotals } from "@/constants/pdf-helpers";
@@ -27,13 +29,15 @@ import { Form } from "@/components/ui/form/form";
 import { Button } from "@/components/ui/button";
 import React, { useState } from "react";
 import { Reorder } from "motion/react";
+import { cn } from "@/lib/utils";
 
 interface InvoiceItemsSectionProps {
   form: UseFormReturn<ZodCreateInvoiceSchema>;
+  itemSuggestions?: InvoiceItem[];
 }
 type InvoiceItem = ZodCreateInvoiceSchema["items"][number];
 
-const InvoiceItemsSection: React.FC<InvoiceItemsSectionProps> = ({ form }) => {
+const InvoiceItemsSection: React.FC<InvoiceItemsSectionProps> = ({ form, itemSuggestions = [] }) => {
   const { fields, append, remove, update, move } = useFieldArray({
     control: form.control,
     name: "items",
@@ -62,7 +66,8 @@ const InvoiceItemsSection: React.FC<InvoiceItemsSectionProps> = ({ form }) => {
   const duplicateItem = (item: InvoiceItem) => {
     append({
       name: item.name,
-      description: item.description,
+      description1: item.description1,
+      description2: item.description2,
       quantity: item.quantity,
       units: item.units,
       unitPrice: item.unitPrice,
@@ -102,7 +107,10 @@ const InvoiceItemsSection: React.FC<InvoiceItemsSectionProps> = ({ form }) => {
                   </div>
                   <div className="w-full">
                     <div className="line-clamp-1 text-sm font-medium">{item.name}</div>
-                    <div className="text-muted-foreground line-clamp-1 text-xs">{item.description}</div>
+                    <div className="text-muted-foreground line-clamp-1 text-xs">{item.description1}</div>
+                    {item.description2 ? (
+                      <div className="text-muted-foreground line-clamp-1 text-xs">{item.description2}</div>
+                    ) : null}
                     {item.metadata.length > 0 && (
                       <div className="text-muted-foreground line-clamp-1 text-[10px]">
                         {item.metadata.map((metadata) => `${metadata.label}: ${metadata.value}`).join(" · ")}
@@ -128,6 +136,8 @@ const InvoiceItemsSection: React.FC<InvoiceItemsSectionProps> = ({ form }) => {
                         data={item}
                         gstRates={gstRates}
                         isSameState={isSameState}
+                        itemSuggestions={itemSuggestions}
+                        currency={currency}
                       >
                         <Button
                           type="button"
@@ -184,7 +194,15 @@ const InvoiceItemsSection: React.FC<InvoiceItemsSectionProps> = ({ form }) => {
         </Reorder.Group>
       )}
       {/* Dialog for adding a new item */}
-      <HandleItemModal type="add" append={append} update={update} gstRates={gstRates} isSameState={isSameState}>
+      <HandleItemModal
+        type="add"
+        append={append}
+        update={update}
+        gstRates={gstRates}
+        isSameState={isSameState}
+        itemSuggestions={itemSuggestions}
+        currency={currency}
+      >
         <Button type="button" className="w-full border-dashed" variant="outline">
           <BoxPlusIcon />
           Add Item
@@ -219,6 +237,8 @@ interface AddItemModalProps {
   update: (index: number, data: InvoiceItem) => void;
   gstRates: GstRates;
   isSameState: boolean;
+  itemSuggestions: InvoiceItem[];
+  currency: string;
 }
 
 const HandleItemModal = ({
@@ -230,8 +250,13 @@ const HandleItemModal = ({
   children,
   gstRates,
   isSameState,
+  itemSuggestions,
+  currency,
 }: AddItemModalProps) => {
   const [open, setOpen] = useState(false);
+  const [nameSuggestionsOpen, setNameSuggestionsOpen] = useState(false);
+  const [description1SuggestionsOpen, setDescription1SuggestionsOpen] = useState(false);
+  const [description2SuggestionsOpen, setDescription2SuggestionsOpen] = useState(false);
 
   const invoiceItemForm = useForm<InvoiceItem>({
     resolver: zodResolver(createInvoiceItemSchema),
@@ -239,7 +264,8 @@ const HandleItemModal = ({
     reValidateMode: "onBlur",
     defaultValues: {
       name: data?.name || "",
-      description: data?.description || "",
+      description1: data?.description1 || "",
+      description2: data?.description2 || "",
       quantity: data?.quantity || 1,
       units: data?.units || "Nos",
       unitPrice: data?.unitPrice || 1,
@@ -258,6 +284,22 @@ const HandleItemModal = ({
     control: invoiceItemForm.control,
     name: "metadata",
   });
+  const selectedName = useWatch({ control: invoiceItemForm.control, name: "name" });
+  const selectedDescription1 = useWatch({ control: invoiceItemForm.control, name: "description1" });
+  const selectedDescription2 = useWatch({ control: invoiceItemForm.control, name: "description2" });
+
+  const getItemSuggestions = (search: string) => {
+    const normalizedSearch = search.trim().toLowerCase();
+
+    if (!normalizedSearch) return itemSuggestions;
+
+    return itemSuggestions.filter(
+      (item) =>
+        item.name.toLowerCase().includes(normalizedSearch) ||
+        item.description1.toLowerCase().includes(normalizedSearch) ||
+        item.description2.toLowerCase().includes(normalizedSearch),
+    );
+  };
 
   const onHandleSubmit = (data: InvoiceItem) => {
     if (type === "edit" && typeof editingIndex === "number") {
@@ -287,13 +329,58 @@ const HandleItemModal = ({
               </DialogHeader>
             </DialogHeaderContainer>
             <DialogContentContainer>
-              <FormInput label="Item Name" name="name" placeholder="Item Name" reactform={invoiceItemForm} />
-              <FormInput
-                label="Item Description"
-                name="description"
-                placeholder="Item Description"
-                reactform={invoiceItemForm}
-              />
+              <ItemSuggestions
+                items={getItemSuggestions(selectedName)}
+                open={nameSuggestionsOpen}
+                selectedItemName={selectedName}
+                setOpen={setNameSuggestionsOpen}
+                form={invoiceItemForm}
+                currency={currency}
+              >
+                <FormInput
+                  label="Item Name"
+                  name="name"
+                  placeholder="Item Name"
+                  reactform={invoiceItemForm}
+                  onFocus={() => setNameSuggestionsOpen(true)}
+                  onChange={() => setNameSuggestionsOpen(true)}
+                />
+              </ItemSuggestions>
+              <ItemSuggestions
+                items={getItemSuggestions(selectedDescription1)}
+                open={description1SuggestionsOpen}
+                selectedItemName={selectedName}
+                setOpen={setDescription1SuggestionsOpen}
+                form={invoiceItemForm}
+                currency={currency}
+              >
+                <FormInput
+                  label="Description 1"
+                  name="description1"
+                  placeholder="Description 1"
+                  reactform={invoiceItemForm}
+                  onFocus={() => setDescription1SuggestionsOpen(true)}
+                  onChange={() => setDescription1SuggestionsOpen(true)}
+                />
+              </ItemSuggestions>
+              <ItemSuggestions
+                items={getItemSuggestions(selectedDescription2)}
+                open={description2SuggestionsOpen}
+                selectedItemName={selectedName}
+                setOpen={setDescription2SuggestionsOpen}
+                form={invoiceItemForm}
+                currency={currency}
+              >
+                <FormInput
+                  label="Description 2"
+                  name="description2"
+                  placeholder="Description 2"
+                  reactform={invoiceItemForm}
+                  onFocus={() => setDescription2SuggestionsOpen(true)}
+                  onChange={() => setDescription2SuggestionsOpen(true)}
+                  isOptional={true}
+                />
+              </ItemSuggestions>
               <FormInput label="HSN/SAC" name="hsnSac" placeholder="HSN/SAC" reactform={invoiceItemForm} />
               <FormRow>
                 <FormInput
@@ -385,6 +472,71 @@ const HandleItemModal = ({
         </Form>
       </DialogContent>
     </Dialog>
+  );
+};
+
+interface ItemSuggestionsProps {
+  children: React.ReactNode;
+  form: UseFormReturn<InvoiceItem>;
+  items: InvoiceItem[];
+  open: boolean;
+  selectedItemName: string;
+  setOpen: (open: boolean) => void;
+  currency: string;
+}
+
+const ItemSuggestions = ({
+  children,
+  form,
+  items,
+  open,
+  selectedItemName,
+  setOpen,
+  currency,
+}: ItemSuggestionsProps) => {
+  const applyItem = (item: InvoiceItem) => {
+    form.setValue("name", item.name, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+    form.setValue("description1", item.description1, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+    form.setValue("description2", item.description2, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+    form.setValue("unitPrice", item.unitPrice, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open && items.length > 0} onOpenChange={setOpen}>
+      <PopoverAnchor className="w-full">{children}</PopoverAnchor>
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] min-w-80 p-0"
+        align="start"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        <Command>
+          <CommandList>
+            <CommandEmpty>No items found.</CommandEmpty>
+            <CommandGroup>
+              {items.map((item) => (
+                <CommandItem
+                  key={`${item.name}-${item.description1}-${item.description2}-${item.unitPrice}`}
+                  value={`${item.name} ${item.description1} ${item.description2}`}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onSelect={() => applyItem(item)}
+                >
+                  <CheckIcon className={cn("size-4", selectedItemName === item.name ? "opacity-100" : "opacity-0")} />
+                  <div className="grid min-w-0 flex-1 grid-cols-[1fr_auto] gap-x-3 gap-y-0.5">
+                    <span className="truncate text-sm font-medium">{item.name}</span>
+                    <span className="text-primary text-xs font-medium">
+                      {formatCurrencyText(currency, item.unitPrice)}
+                    </span>
+                    <span className="text-muted-foreground truncate text-xs">{item.description1}</span>
+                    <span className="text-muted-foreground truncate text-right text-xs">{item.description2}</span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 };
 

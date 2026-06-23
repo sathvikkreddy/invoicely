@@ -3,9 +3,9 @@
 
 import { ZodCreateInvoiceSchema } from "@/zod-schemas/invoice/create-invoice";
 import { Document, Page, Text, View, Image, Font } from "@react-pdf/renderer";
-import { getInvoiceTotals } from "@/constants/pdf-helpers";
 import { resolveBodyFontFamily } from "@/lib/invoice/resolve-pdf-font";
 import { GEIST_FONT, GEIST_MONO_FONT } from "@/constants/pdf-fonts";
+import { getInvoiceTotals } from "@/constants/pdf-helpers";
 import { formatCurrencyText } from "@/constants/currency";
 import { createTw } from "react-pdf-tailwind";
 import { toWords } from "number-to-words";
@@ -139,7 +139,9 @@ const VercelPdf: React.FC<{ data: ZodCreateInvoiceSchema }> = ({ data }) => {
             <Text style={tw(cn("text-neutral-600"))}>Billed By</Text>
             <Text style={tw("text-sm text-neutral-100")}>{data.companyDetails.name}</Text>
             <Text style={tw("text-2xs font-normal text-neutral-400")}>{data.companyDetails.address}</Text>
-            {data.companyDetails.gstin && <Text style={tw("text-2xs font-normal text-neutral-400")}>GSTIN {data.companyDetails.gstin}</Text>}
+            {data.companyDetails.gstin && (
+              <Text style={tw("text-2xs font-normal text-neutral-400")}>GSTIN {data.companyDetails.gstin}</Text>
+            )}
             {(data.companyDetails.state || data.companyDetails.stateCode) && (
               <Text style={tw("text-2xs font-normal text-neutral-400")}>
                 {data.companyDetails.state} {data.companyDetails.stateCode}
@@ -225,8 +227,13 @@ const VercelPdf: React.FC<{ data: ZodCreateInvoiceSchema }> = ({ data }) => {
                 <View style={tw("flex flex-col w-[38%]")}>
                   <Text style={tw("w-full text-xs leading-[12px] text-neutral-100")}>{item.name}</Text>
                   <Text style={tw("text-2xs leading-[10px] mt-1 font-normal text-neutral-700")}>
-                    {item.description}
+                    {item.description1}
                   </Text>
+                  {item.description2 ? (
+                    <Text style={tw("text-2xs leading-[10px] mt-1 font-normal text-neutral-700")}>
+                      {item.description2}
+                    </Text>
+                  ) : null}
                   {item.metadata.map((metadata) => (
                     <Text key={metadata.label} style={tw("text-2xs leading-[10px] mt-1 font-normal text-neutral-600")}>
                       {metadata.label}: {metadata.value}

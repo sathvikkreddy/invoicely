@@ -22,7 +22,7 @@ function collectInvoiceText(data: ZodCreateInvoiceSchema): string {
     ...shippingClientDetails.metadata.flatMap((field) => [field.label, field.value]),
     ...metadata.paymentInformation.flatMap((field) => [field.label, field.value]),
     ...invoiceDetails.billingDetails.map((billing) => billing.label),
-    ...items.flatMap((item) => [item.name, item.description]),
+    ...items.flatMap((item) => [item.name, item.description1, item.description2]),
   ];
 
   return parts.filter(Boolean).join("");

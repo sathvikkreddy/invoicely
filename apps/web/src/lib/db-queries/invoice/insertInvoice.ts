@@ -202,7 +202,8 @@ export const insertInvoiceQuery = async (
         .insert(schema.invoiceItems)
         .values({
           id: uuidv4(),
-          description: item.description,
+          description1: item.description1,
+          description2: item.description2,
           hsnSac: item.hsnSac,
           name: item.name,
           quantity: item.quantity,

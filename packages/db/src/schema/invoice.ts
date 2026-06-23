@@ -134,7 +134,8 @@ export const invoiceDetailsBillingDetails = pgTable("invoice_details_billing_det
 export const invoiceItems = pgTable("invoice_items", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
-  description: text("description").notNull(),
+  description1: text("description_1").notNull(),
+  description2: text("description_2").notNull().default(""),
   hsnSac: text("hsn_sac").notNull().default(""),
   quantity: integer("quantity").notNull(),
   units: text("units").notNull().default("Nos"),
