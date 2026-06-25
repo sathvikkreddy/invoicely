@@ -134,10 +134,10 @@ export const createInvoiceSchema = z.object({
         }),
         mode: z.enum(["dark", "light"], { invalid_type_error: "Mode must be either 'dark' or 'light'" }),
         template: z
-          .enum(["default", "vercel"], {
-            invalid_type_error: "Template must be either 'default' or 'vercel'",
+          .enum(["classic", "default", "vercel"], {
+            invalid_type_error: "Template must be either 'classic', 'default' or 'vercel'",
           })
-          .default("default")
+          .default("classic")
           .optional(),
         font: z
           .enum(["quicksand", "geist", "inter", "jetbrainsmono"], {
@@ -209,7 +209,7 @@ export const createInvoiceSchemaDefaultValues: ZodCreateInvoiceSchema = {
   },
   invoiceDetails: {
     theme: {
-      template: "default",
+      template: "classic",
       baseColor: "#635CFF",
       mode: "light",
     },

@@ -1,12 +1,12 @@
 import { ZodCreateInvoiceSchema } from "@/zod-schemas/invoice/create-invoice";
+import { ClassicPDF, DefaultPDF, VercelPDF } from "@/components/pdf";
 import { FormSelect } from "@/components/ui/form/form-select";
-import { DefaultPDF, VercelPDF } from "@/components/pdf";
+import { FileTextIcon, TriangleIcon } from "lucide-react";
 import { SelectItem } from "@/components/ui/select";
 import { UseFormReturn } from "react-hook-form";
-import { TriangleIcon } from "lucide-react";
 import { BoxIcon } from "@/assets/icons";
 
-export type PdfTemplateName = "default" | "vercel" | undefined;
+export type PdfTemplateName = "classic" | "default" | "vercel" | undefined;
 
 interface PdfTemplate {
   name: PdfTemplateName;
@@ -17,6 +17,12 @@ interface PdfTemplate {
 
 // Available Template Array
 export const availablePdfTemplates: PdfTemplate[] = [
+  {
+    name: "classic",
+    label: "Classic",
+    component: ClassicPDF,
+    icon: <FileTextIcon className="size-4" />,
+  },
   {
     name: "default",
     label: "Default",
@@ -36,7 +42,7 @@ export const InvoiceTemplateSelector = ({ form }: { form: UseFormReturn<ZodCreat
     <FormSelect
       name="invoiceDetails.theme.template"
       reactform={form}
-      defaultValue="default"
+      defaultValue="classic"
       placeholder="Select template"
       alingContent="end"
       className="min-w-34"

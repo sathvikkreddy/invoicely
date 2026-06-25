@@ -467,7 +467,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
                       </SelectItem>
                     ))}
                   </FormSelect>
-                  {invoiceTemplate !== "vercel" && (
+                  {invoiceTemplate === "default" && (
                     <>
                       <FormSelect
                         name="invoiceDetails.theme.mode"
