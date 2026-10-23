@@ -6,7 +6,7 @@ import { listUserImageKeys } from "@/lib/cloudflare/r2/list-user-image-keys";
 import { getNextInvoiceNumber } from "@/lib/invoice/get-next-invoice-number";
 import { listInvoicesQuery } from "@/lib/db-queries/invoice/listInvoices";
 import { requireServerSession } from "@/lib/server-session";
-import InvoicePage from "./invoice";
+import InvoicePage from "./invoice-client";
 
 interface PageProps {
   searchParams: Promise<CallbackSearchParams>;

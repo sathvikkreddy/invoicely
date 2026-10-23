@@ -1,8 +1,8 @@
 import { createCallbackUrl, type CallbackSearchParams } from "@/lib/auth-callback";
 import { listUserImageKeys } from "@/lib/cloudflare/r2/list-user-image-keys";
 import { serializeDatabaseInvoice } from "@/lib/invoice/serialize-invoice";
+import InvoicePage from "@/app/(dashboard)/create/invoice/invoice-client";
 import { listInvoicesQuery } from "@/lib/db-queries/invoice/listInvoices";
-import InvoicePage from "@/app/(dashboard)/create/invoice/invoice";
 import { requireServerSession } from "@/lib/server-session";
 import { notFound } from "next/navigation";
 import { z } from "zod";
@@ -27,8 +27,15 @@ const Page = async ({ params, searchParams }: PageProps) => {
 
   if (!invoice) notFound();
 
+  const importableInvoices = invoices.filter(({ id: invoiceId }) => invoiceId !== parsedId.data);
+
   return (
-    <InvoicePage invoiceId={parsedId.data} defaultInvoice={invoice.invoiceFields} invoices={invoices} images={images} />
+    <InvoicePage
+      invoiceId={parsedId.data}
+      defaultInvoice={invoice.invoiceFields}
+      invoices={importableInvoices}
+      images={images}
+    />
   );
 };
 
