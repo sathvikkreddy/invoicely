@@ -7,7 +7,6 @@ export const getDashboardInvoicesQuery = async (userId: string) => {
     where: eq(schema.invoices.userId, userId),
     columns: {
       id: true,
-      type: true,
       status: true,
       paidAt: true,
     },

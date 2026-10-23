@@ -1,7 +1,7 @@
 import { createInvoiceSchemaDefaultValues } from "@/zod-schemas/invoice/create-invoice";
 
 interface InvoiceSerialSource {
-  createdAt: Date;
+  createdAt: Date | string;
   invoiceFields: {
     invoiceDetails: {
       prefix: string;
@@ -33,11 +33,9 @@ const incrementSerialNumber = (serialNumber: string): string => {
 };
 
 /**
- * Derive the invoice number for a new invoice from the most recently created
- * invoice across both local (IndexedDB) and server (Postgres) stores, so the
- * sequence continues from wherever the user last left off regardless of where
- * the previous invoice was saved. Falls back to the schema defaults when the
- * user has no invoices yet.
+ * Derive the invoice number for a new invoice from the user's most recently
+ * created Postgres invoice. Falls back to the schema defaults when the user
+ * has no invoices yet.
  */
 export const getNextInvoiceNumber = (invoices: InvoiceSerialSource[]): NextInvoiceNumber => {
   const defaults = createInvoiceSchemaDefaultValues.invoiceDetails;
@@ -47,7 +45,7 @@ export const getNextInvoiceNumber = (invoices: InvoiceSerialSource[]): NextInvoi
   }
 
   const latest = invoices.reduce((latestInvoice, invoice) =>
-    invoice.createdAt > latestInvoice.createdAt ? invoice : latestInvoice,
+    new Date(invoice.createdAt).getTime() > new Date(latestInvoice.createdAt).getTime() ? invoice : latestInvoice,
   );
 
   return {

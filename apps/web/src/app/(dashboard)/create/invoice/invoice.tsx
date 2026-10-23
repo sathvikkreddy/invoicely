@@ -6,6 +6,7 @@ import {
   type ZodCreateInvoiceSchema,
 } from "@/zod-schemas/invoice/create-invoice";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { deserializeInvoiceFields } from "@/lib/invoice/serialize-invoice";
 import InvoiceOptions from "./invoiceOptionHelpers/invoice-options";
 import { ImperativePanelHandle } from "react-resizable-panels";
 import { invoiceTabAtom } from "@/global/atoms/invoice-atom";
@@ -20,7 +21,14 @@ import InvoiceForm from "./invoice-form";
 import { cn } from "@/lib/utils";
 import { useAtom } from "jotai";
 
-const InvoicePage = ({ defaultInvoice }: { defaultInvoice?: Invoice["invoiceFields"] }) => {
+interface InvoicePageProps {
+  defaultInvoice?: Invoice["invoiceFields"];
+  invoices: Invoice[];
+  images: string[];
+  invoiceId?: string;
+}
+
+const InvoicePage = ({ defaultInvoice, invoices, images, invoiceId }: InvoicePageProps) => {
   const invoiceFormPanelRef = useRef<ImperativePanelHandle>(null);
   const invoicePreviewPanelRef = useRef<ImperativePanelHandle>(null);
   const [invoiceTab, setInvoiceTab] = useAtom(invoiceTabAtom);
@@ -29,7 +37,7 @@ const InvoicePage = ({ defaultInvoice }: { defaultInvoice?: Invoice["invoiceFiel
   // Form
   const form = useForm<ZodCreateInvoiceSchema>({
     resolver: zodResolver(createInvoiceSchema),
-    defaultValues: defaultInvoice || createInvoiceSchemaDefaultValues,
+    defaultValues: defaultInvoice ? deserializeInvoiceFields(defaultInvoice) : createInvoiceSchemaDefaultValues,
   });
 
   // Collapse or expand the panels based on the invoiceTab value
@@ -76,10 +84,10 @@ const InvoicePage = ({ defaultInvoice }: { defaultInvoice?: Invoice["invoiceFiel
 
   return (
     <div className="flex h-full flex-col">
-      <InvoiceOptions form={form} />
+      <InvoiceOptions form={form} invoices={invoices} invoiceId={invoiceId} />
       <ResizablePanelGroup direction="horizontal" className="divide-x">
         <ResizablePanel collapsible={true} defaultSize={50} ref={invoiceFormPanelRef}>
-          <InvoiceForm form={form} />
+          <InvoiceForm form={form} images={images} />
         </ResizablePanel>
         <ResizablePanel
           className={cn(invoiceTab === "both" ? "hidden md:flex" : "flex")}

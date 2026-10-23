@@ -9,7 +9,7 @@ export const defaultWebsiteViewport: Viewport = {
 };
 
 export const defaultWebsiteMetadata: Metadata = {
-  metadataBase: new URL("https://invoicely.gg"),
+  metadataBase: new URL("https://invoicely.sathvikkreddy.xyz"),
   title: "Invoicely - Create Beautiful & Professional Invoices",
   description:
     "Invoicely is a simple and easy to use invoice generator where you can create beautiful and professional invoices in minutes. ~ Proudly OSS - Backed by Cloudflare OSS",

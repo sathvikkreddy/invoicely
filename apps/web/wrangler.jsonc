@@ -5,12 +5,20 @@
   "compatibility_date": "2026-10-03",
   "compatibility_flags": ["nodejs_compat"],
   "keep_vars": true,
+  "vars": {
+    "BETTER_AUTH_URL": "https://invoicely.sathvikkreddy.xyz",
+    "CF_R2_BUCKET_NAME": "invoicely",
+    "CF_R2_ENDPOINT": "https://25676ce86e223d424e0e0bc5e9f8d54c.r2.cloudflarestorage.com",
+    "CF_R2_PUBLIC_DOMAIN": "https://storage.invoicely.sathvikkreddy.xyz",
+    "GOOGLE_CLIENT_ID": "346198303898-bv7tl9ujkpfssjk5qv9it56btj16euc6.apps.googleusercontent.com",
+    "NEXT_PUBLIC_BASE_URL": "https://invoicely.sathvikkreddy.xyz",
+  },
   "workers_dev": false,
   "preview_urls": false,
   "routes": [
-    { "pattern": "invoicely.gg", "custom_domain": true },
+    { "pattern": "invoicely.sathvikkreddy.xyz", "custom_domain": true },
     {
-      "pattern": "preview.invoicely.gg",
+      "pattern": "preview.invoicely.sathvikkreddy.xyz",
       "custom_domain": true,
       "enabled": false,
       "previews_enabled": true,
@@ -29,7 +37,15 @@
   "images": { "binding": "IMAGES" },
   "observability": { "enabled": true },
   "previews": {
-    "vars": { "CLOUDFLARE_PREVIEW": "true" },
+    "vars": {
+      "BETTER_AUTH_URL": "https://invoicely.sathvikkreddy.xyz",
+      "CF_R2_BUCKET_NAME": "invoicely",
+      "CF_R2_ENDPOINT": "https://25676ce86e223d424e0e0bc5e9f8d54c.r2.cloudflarestorage.com",
+      "CF_R2_PUBLIC_DOMAIN": "https://storage.invoicely.sathvikkreddy.xyz",
+      "CLOUDFLARE_PREVIEW": "true",
+      "GOOGLE_CLIENT_ID": "346198303898-bv7tl9ujkpfssjk5qv9it56btj16euc6.apps.googleusercontent.com",
+      "NEXT_PUBLIC_BASE_URL": "https://invoicely.sathvikkreddy.xyz",
+    },
     "images": { "binding": "IMAGES" },
   },
   "env": {

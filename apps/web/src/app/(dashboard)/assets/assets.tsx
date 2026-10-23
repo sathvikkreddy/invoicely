@@ -2,19 +2,16 @@
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ImageSparkleIcon, SignatureIcon, TrashIcon, IdBadgeIcon } from "@/assets/icons";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ZodDefaultDetailsSchema } from "@/zod-schemas/invoice/default-details";
 import { getImagesWithKey } from "@/lib/manage-assets/getImagesWithKey";
-import { deleteImageFromIDB } from "@/lib/indexdb-queries/deleteImage";
-import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "@/constants/issues";
-import { getAllImages } from "@/lib/indexdb-queries/getAllImages";
-import EmptySection from "@/components/ui/icon-placeholder";
 import UploadSignatureAsset from "./upload-signature.asset";
+import { deleteImageAction } from "@/actions/asset-actions";
 import { DefaultDetails } from "./default-details";
 import UploadLogoAsset from "./upload-logo-asset";
 import { Button } from "@/components/ui/button";
-import { useSession } from "@/lib/client-auth";
+import { useRouter } from "next/navigation";
 import { R2_PUBLIC_URL } from "@/constants";
-import { useTRPC } from "@/trpc/client";
+import { useTransition } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 import React from "react";
@@ -31,101 +28,37 @@ const typeOfImages: ImageType[] = [
     key: "logo",
     icon: <ImageSparkleIcon />,
     title: "Logos",
-    description:
-      "Manage the logos that will be used in the invoices. You can upload a new logo or delete the existing one.",
+    description: "Manage the logos available to your invoices.",
   },
   {
     key: "signature",
     icon: <SignatureIcon />,
     title: "Signatures",
-    description:
-      "Manage the signatures that will be used in the invoices. You can upload a new signature or delete the existing one.",
+    description: "Manage the signatures available to your invoices.",
   },
 ];
 
-const AssetsPage = () => {
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-  const { data: session, isPending: isSessionPending } = useSession();
+interface AssetsPageProps {
+  images: string[];
+  defaultDetails: ZodDefaultDetailsSchema | null;
+}
 
-  //   Fetch images from server
-  const images = useQuery({
-    ...trpc.cloudflare.listImages.queryOptions(),
-    enabled: !!session?.user,
-  });
+const AssetsPage = ({ images, defaultDetails }: AssetsPageProps) => {
+  const [isDeleting, startTransition] = useTransition();
+  const router = useRouter();
 
-  //   Fetch images from indexedDB
-  const imagesFromIndexedDB = useQuery({
-    queryKey: ["idb-images"],
-    queryFn: getAllImages,
-  });
+  function handleDeleteImage(key: string) {
+    startTransition(async () => {
+      const result = await deleteImageAction({ key });
+      if (!result.success) {
+        toast.error("Failed to delete image", { description: result.error.message });
+        return;
+      }
 
-  //   Delete image from server
-  const deleteServerImageMutation = useMutation({
-    ...trpc.cloudflare.deleteImageFile.mutationOptions(),
-    onSuccess: () => {
-      toast.success(SUCCESS_MESSAGES.TOAST_DEFAULT_TITLE, {
-        description: SUCCESS_MESSAGES.IMAGE_DELETED,
-      });
-
-      // Invalidate queries
-      queryClient.invalidateQueries({ queryKey: trpc.cloudflare.listImages.queryKey() });
-    },
-    onError: (error) => {
-      toast.error(ERROR_MESSAGES.TOAST_DEFAULT_TITLE, {
-        description: error.message,
-      });
-    },
-  });
-
-  //   Delete image from indexedDB
-  const deleteImageFromIndexedDBMutation = useMutation({
-    mutationFn: (imageId: string) => deleteImageFromIDB(imageId),
-    onSuccess: () => {
-      toast.success(SUCCESS_MESSAGES.TOAST_DEFAULT_TITLE, {
-        description: SUCCESS_MESSAGES.IMAGE_DELETED,
-      });
-
-      // Invalidate queries
-      queryClient.invalidateQueries({ queryKey: ["idb-images"] });
-    },
-    onError: (error) => {
-      toast.error(ERROR_MESSAGES.TOAST_DEFAULT_TITLE, {
-        description: error.message,
-      });
-    },
-  });
-
-  if (isSessionPending || images.isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <EmptySection
-          title={SUCCESS_MESSAGES.LOADING_ASSETS}
-          description={SUCCESS_MESSAGES.LOADING_ASSETS_DESCRIPTION}
-        />
-      </div>
-    );
+      toast.success("Image deleted", { description: result.data.message });
+      router.refresh();
+    });
   }
-
-  if (images.isError) {
-    return (
-      <div className="flex h-full items-center justify-center text-red-500">
-        <EmptySection
-          title={ERROR_MESSAGES.DEFAULT}
-          description={`${ERROR_MESSAGES.FETCHING_ASSETS} ${images.failureReason}`}
-        />
-      </div>
-    );
-  }
-
-  const handleDeleteImage = async (imageId: string, type: "server" | "local") => {
-    if (session?.user && type === "server") {
-      // Delete image from  server
-      deleteServerImageMutation.mutate({ key: imageId });
-    } else {
-      deleteImageFromIndexedDBMutation.mutate(imageId);
-    }
-  };
 
   return (
     <div>
@@ -145,11 +78,11 @@ const AssetsPage = () => {
             <div>
               <div className="instrument-serif text-xl font-bold">Default Details</div>
               <p className="text-muted-foreground text-xs">
-                Save your company and client details once to pre-fill every new invoice. Stored on your device.
+                Save your company and client details once to pre-fill every new invoice in your account.
               </p>
             </div>
             <div className="mt-4">
-              <DefaultDetails />
+              <DefaultDetails savedDetails={defaultDetails} />
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -165,63 +98,33 @@ const AssetsPage = () => {
               <div>
                 <div className="instrument-serif text-xl font-bold">{type.title}</div>
                 <p className="text-muted-foreground text-xs">
-                  Manage your {type.key}s. New uploads are saved{" "}
-                  {session?.user.allowedSavingData ? "to your account" : "on this device"}.
+                  {type.description} New uploads are saved to your account.
                 </p>
               </div>
-              {/* One upload follows the sync preference; existing images stay in their original storage. */}
               <div className="mt-2 grid grid-cols-2 gap-4 md:grid-cols-5">
-                {type.key === "logo" && <UploadLogoAsset type={session?.user.allowedSavingData ? "server" : "local"} />}
-                {type.key === "signature" && (
-                  <UploadSignatureAsset type={session?.user.allowedSavingData ? "server" : "local"} />
-                )}
-                {session?.user &&
-                  getImagesWithKey(images.data?.images, type.key).map((image) => (
-                    <div key={image} className="bg-border/30 relative rounded-md">
-                      <Button
-                        disabled={deleteServerImageMutation.isPending}
-                        variant="ghost"
-                        size="xs"
-                        className="absolute top-2 right-2 !px-0.5 text-red-500 hover:!bg-red-500 hover:!text-white"
-                        onClick={() => handleDeleteImage(image, "server")}
-                      >
-                        <TrashIcon />
-                      </Button>
-                      <Image
-                        src={`${R2_PUBLIC_URL}/${image}`}
-                        alt={image}
-                        width={200}
-                        height={200}
-                        className="aspect-square w-full rounded-md object-cover"
-                        unoptimized
-                      />
-                    </div>
-                  ))}
-                {imagesFromIndexedDB.data?.map((image) => {
-                  if (image.type === type.key) {
-                    return (
-                      <div key={image.id} className="bg-border/30 relative rounded-md">
-                        <Button
-                          disabled={deleteImageFromIndexedDBMutation.isPending}
-                          variant="ghost"
-                          size="xs"
-                          className="absolute top-2 right-2 !px-0.5 text-red-500 hover:!bg-red-500 hover:!text-white"
-                          onClick={() => handleDeleteImage(image.id, "local")}
-                        >
-                          <TrashIcon />
-                        </Button>
-                        <Image
-                          src={image.base64}
-                          alt={image.id}
-                          width={200}
-                          height={200}
-                          className="aspect-square w-full rounded-md object-cover"
-                          unoptimized
-                        />
-                      </div>
-                    );
-                  }
-                })}
+                {type.key === "logo" ? <UploadLogoAsset /> : <UploadSignatureAsset />}
+                {getImagesWithKey(images, type.key).map((image) => (
+                  <div key={image} className="bg-border/30 relative rounded-md">
+                    <Button
+                      disabled={isDeleting}
+                      variant="ghost"
+                      size="xs"
+                      className="absolute top-2 right-2 !px-0.5 text-red-500 hover:!bg-red-500 hover:!text-white"
+                      onClick={() => handleDeleteImage(image)}
+                      aria-label={`Delete ${type.key}`}
+                    >
+                      <TrashIcon />
+                    </Button>
+                    <Image
+                      src={`${R2_PUBLIC_URL}/${image}`}
+                      alt={`${type.key} asset`}
+                      width={200}
+                      height={200}
+                      className="aspect-square w-full rounded-md object-cover"
+                      unoptimized
+                    />
+                  </div>
+                ))}
               </div>
             </AccordionContent>
           </AccordionItem>

@@ -14,10 +14,9 @@ export const env = createEnv({
     CF_R2_PUBLIC_DOMAIN: z.string(),
   },
   client: {
-    NEXT_PUBLIC_POSTHOG_HOST: z.string(),
-    NEXT_PUBLIC_POSTHOG_KEY: z.string(),
+    NEXT_PUBLIC_POSTHOG_HOST: z.string().default(""),
+    NEXT_PUBLIC_POSTHOG_KEY: z.string().default(""),
     NEXT_PUBLIC_BASE_URL: z.string(),
-    NEXT_PUBLIC_TRPC_BASE_URL: z.string(),
   },
   runtimeEnv: {
     // =========== SERVER ===========
@@ -34,7 +33,6 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_HOST: process.env.NEXT_PUBLIC_POSTHOG_HOST,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
     NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
-    NEXT_PUBLIC_TRPC_BASE_URL: process.env.NEXT_PUBLIC_TRPC_BASE_URL,
   },
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
 });

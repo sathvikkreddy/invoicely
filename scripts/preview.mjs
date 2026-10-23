@@ -9,9 +9,6 @@ export const migrationLifecycleVersion = 1;
 
 const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 const defaultStatePath = join(repoRoot, "apps/web/.wrangler/neon-preview.json");
-const devEndpointId = "ep-royal-lab-a1j1ksvy";
-const databaseName = "invoicely";
-const roleName = "invoicely_owner";
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function required(env, name) {
@@ -59,19 +56,35 @@ function nativeIdentity(env) {
   };
 }
 
-export function validateDatabaseUrl(value) {
+function previewDatabaseConfig(env) {
+  const parentEndpoint = required(env, "NEON_PARENT_ENDPOINT_ID");
+  const productionEndpoint = required(env, "NEON_PRODUCTION_ENDPOINT_ID");
+  const database = required(env, "NEON_DATABASE_NAME");
+  const role = required(env, "NEON_ROLE_NAME");
+  if (![parentEndpoint, productionEndpoint].every((value) => /^ep-[a-z0-9-]+$/.test(value))) {
+    throw new Error("Neon endpoint IDs must use the expected ep-* format.");
+  }
+  if (![database, role].every((value) => /^[A-Za-z0-9_.-]+$/.test(value))) {
+    throw new Error("Neon database and role names contain unsupported characters.");
+  }
+  return { parentEndpoint, productionEndpoint, database, role };
+}
+
+export function validateDatabaseUrl(value, env) {
   let url;
   try {
     url = new URL(value);
   } catch {
     throw new Error("DATABASE_URL must be the generated Neon preview connection string.");
   }
+  const { parentEndpoint, productionEndpoint, database, role } = previewDatabaseConfig(env);
   const endpoint = url.hostname.split(".")[0].replace(/-pooler$/, "");
   if (
     !["postgres:", "postgresql:"].includes(url.protocol) ||
     !url.hostname.endsWith(".neon.tech") ||
-    [devEndpointId, "ep-wispy-thunder-a1jhwivm"].includes(endpoint) ||
-    url.pathname !== `/${databaseName}` ||
+    [parentEndpoint, productionEndpoint].includes(endpoint) ||
+    url.pathname !== `/${database}` ||
+    decodeURIComponent(url.username) !== role ||
     !url.password ||
     !["require", "verify-ca", "verify-full"].includes(url.searchParams.get("sslmode"))
   ) {
@@ -116,8 +129,10 @@ export async function requestJson(url, key, { method = "GET", body, missingOK = 
 
 export async function verifyParent(env, fetchImpl = fetch) {
   const { base, parent, key } = neonConfig(env);
+  const parentEndpoint = required(env, "NEON_PARENT_ENDPOINT_ID");
+  if (!/^ep-[a-z0-9-]+$/.test(parentEndpoint)) throw new Error("NEON_PARENT_ENDPOINT_ID is invalid.");
   const data = await requestJson(`${base}/endpoints`, key, { fetchImpl });
-  if (!data.endpoints?.some((endpoint) => endpoint.id === devEndpointId && endpoint.branch_id === parent)) {
+  if (!data.endpoints?.some((endpoint) => endpoint.id === parentEndpoint && endpoint.branch_id === parent)) {
     throw new Error(
       "The configured Neon parent does not own the selected development endpoint. Check the Neon variables.",
     );
@@ -175,6 +190,7 @@ async function waitOperations(config, operations, fetchImpl, sleep) {
 export async function prepareDatabase(env, { fetchImpl = fetch, sleep = delay } = {}) {
   const identity = nativeIdentity(env);
   const config = neonConfig(env);
+  const databaseConfig = previewDatabaseConfig(env);
   await verifyParent(env, fetchImpl);
   let branch = (await listBranches(config, identity.names.neon, fetchImpl)).find(
     (item) => item.name === identity.names.neon,
@@ -198,16 +214,16 @@ export async function prepareDatabase(env, { fetchImpl = fetch, sleep = delay } 
   for (const pooled of [false, true]) {
     const query = new URLSearchParams({
       branch_id: branch.id,
-      database_name: databaseName,
-      role_name: roleName,
+      database_name: databaseConfig.database,
+      role_name: databaseConfig.role,
       pooled: String(pooled),
     });
     const data = await requestJson(`${config.base}/connection_uri?${query}`, config.key, { fetchImpl });
-    validateDatabaseUrl(data.uri);
+    validateDatabaseUrl(data.uri, env);
     urls[pooled ? "pooled" : "direct"] = data.uri;
   }
-  const direct = validateDatabaseUrl(urls.direct);
-  const pooled = validateDatabaseUrl(urls.pooled);
+  const direct = validateDatabaseUrl(urls.direct, env);
+  const pooled = validateDatabaseUrl(urls.pooled, env);
   if (direct.hostname !== pooled.hostname.replace("-pooler.", ".")) {
     throw new Error("Neon returned different endpoints for preview migrations and runtime.");
   }
@@ -220,6 +236,10 @@ function childEnv(env) {
     "NEON_API_KEY",
     "NEON_PROJECT_ID",
     "NEON_PARENT_BRANCH_ID",
+    "NEON_PARENT_ENDPOINT_ID",
+    "NEON_PRODUCTION_ENDPOINT_ID",
+    "NEON_DATABASE_NAME",
+    "NEON_ROLE_NAME",
     "CLOUDFLARE_API_TOKEN",
     "CLOUDFLARE_ACCOUNT_ID",
   ])
@@ -330,7 +350,7 @@ export async function deploy(env, { run = runYarn, statePath = defaultStatePath,
     ) {
       throw new Error("Preview database state belongs to a different branch or build. Rebuild before uploading.");
     }
-    validateDatabaseUrl(state.DATABASE_URL);
+    validateDatabaseUrl(state.DATABASE_URL, env);
     commandEnv.DATABASE_URL = state.DATABASE_URL;
     if (args.length)
       throw new Error("Hosted preview names and secrets are managed by the build; remove extra upload arguments.");
@@ -351,7 +371,7 @@ export async function deploy(env, { run = runYarn, statePath = defaultStatePath,
     const secretsPath = join(directory, "secrets.json");
     await writeFile(secretsPath, JSON.stringify({ DATABASE_URL: state.DATABASE_URL }), { mode: 0o600 });
     await run(
-      ["workspace", "web", "wrangler", "preview", "--name", state.branch, "--secrets-file", secretsPath],
+      ["workspace", "web", "wrangler", "preview", "--env", "", "--name", state.branch, "--secrets-file", secretsPath],
       uploadEnv,
       secrets,
     );

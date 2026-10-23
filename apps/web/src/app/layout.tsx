@@ -7,10 +7,9 @@ import {
   Urbanist,
   Bricolage_Grotesque,
 } from "next/font/google";
-import { ReactScanProvider, JotaiProvider, PostHogProvider, OpenPanelProvider, TanstackProvider } from "@/providers";
+import { ReactScanProvider, JotaiProvider, PostHogProvider, OpenPanelProvider } from "@/providers";
 import { defaultWebsiteMetadata, defaultWebsiteViewport } from "@/constants/meta-data";
 import { TOAST_ICONS, TOAST_OPTIONS } from "@/constants/toast";
-import { TRPCProvider } from "@/trpc/client";
 import { ThemeProvider } from "next-themes";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
@@ -84,34 +83,29 @@ export default function RootLayout({
           "antialiased",
         )}
       >
-        <TanstackProvider>
-          <TRPCProvider>
-            <PostHogProvider>
-              <OpenPanelProvider>
-                <JotaiProvider>
-                  <ThemeProvider
-                    defaultTheme="system"
-                    attribute="class"
-                    scriptProps={{
-                      "data-cfasync": "false",
-                    }}
-                  >
-                    <ReactScanProvider />
-                    <ReactScanProvider />
-                    <Toaster
-                      richColors
-                      position="top-center"
-                      toastOptions={TOAST_OPTIONS}
-                      icons={TOAST_ICONS}
-                      visibleToasts={4}
-                    />
-                    {children}
-                  </ThemeProvider>
-                </JotaiProvider>
-              </OpenPanelProvider>
-            </PostHogProvider>
-          </TRPCProvider>
-        </TanstackProvider>
+        <PostHogProvider>
+          <OpenPanelProvider>
+            <JotaiProvider>
+              <ThemeProvider
+                defaultTheme="system"
+                attribute="class"
+                scriptProps={{
+                  "data-cfasync": "false",
+                }}
+              >
+                <ReactScanProvider />
+                <Toaster
+                  richColors
+                  position="top-center"
+                  toastOptions={TOAST_OPTIONS}
+                  icons={TOAST_ICONS}
+                  visibleToasts={4}
+                />
+                {children}
+              </ThemeProvider>
+            </JotaiProvider>
+          </OpenPanelProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

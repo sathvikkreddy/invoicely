@@ -5,8 +5,7 @@ import {
   defaultDetailsSchemaDefaultValues,
   ZodDefaultDetailsSchema,
 } from "@/zod-schemas/invoice/default-details";
-import { getDefaultDetails, saveDefaultDetails } from "@/lib/indexdb-queries/defaultDetails";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { saveDefaultDetailsAction } from "@/actions/default-details-actions";
 import { useFieldArray, useForm, UseFormReturn } from "react-hook-form";
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "@/constants/issues";
 import { FormTextarea } from "@/components/ui/form/form-textarea";
@@ -15,24 +14,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form/form";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { useRouter } from "next/navigation";
 import { TrashIcon } from "@/assets/icons";
+import { useTransition } from "react";
 import { toast } from "sonner";
 import React from "react";
 
-const DefaultDetails = () => {
-  // Fetch the saved details first so the form mounts with the correct defaults
-  // (compute-before-mount instead of resetting via an effect).
-  const { data, isPending } = useQuery({
-    queryKey: ["idb-default-details"],
-    queryFn: getDefaultDetails,
-  });
-
-  if (isPending) {
-    return <p className="text-muted-foreground py-4 text-sm">Loading default details...</p>;
-  }
-
-  const defaultValues: ZodDefaultDetailsSchema = data
-    ? { companyDetails: data.companyDetails, clientDetails: data.clientDetails }
+const DefaultDetails = ({ savedDetails }: { savedDetails: ZodDefaultDetailsSchema | null }) => {
+  const defaultValues: ZodDefaultDetailsSchema = savedDetails
+    ? { companyDetails: savedDetails.companyDetails, clientDetails: savedDetails.clientDetails }
     : defaultDetailsSchemaDefaultValues;
 
   return <DefaultDetailsForm defaultValues={defaultValues} />;
@@ -41,29 +31,32 @@ const DefaultDetails = () => {
 export { DefaultDetails };
 
 const DefaultDetailsForm = ({ defaultValues }: { defaultValues: ZodDefaultDetailsSchema }) => {
-  const queryClient = useQueryClient();
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   const form = useForm<ZodDefaultDetailsSchema>({
     resolver: zodResolver(defaultDetailsSchema),
     defaultValues,
   });
 
-  const saveMutation = useMutation({
-    mutationFn: (values: ZodDefaultDetailsSchema) => saveDefaultDetails(values),
-    onSuccess: () => {
+  function saveDetails(values: ZodDefaultDetailsSchema) {
+    startTransition(async () => {
+      const result = await saveDefaultDetailsAction(values);
+      if (!result.success) {
+        toast.error(ERROR_MESSAGES.TOAST_DEFAULT_TITLE, { description: result.error.message });
+        return;
+      }
+
       toast.success(SUCCESS_MESSAGES.DEFAULT_DETAILS_SAVED, {
         description: SUCCESS_MESSAGES.DEFAULT_DETAILS_SAVED_DESCRIPTION,
       });
-      queryClient.invalidateQueries({ queryKey: ["idb-default-details"] });
-    },
-    onError: (error) => {
-      toast.error(ERROR_MESSAGES.TOAST_DEFAULT_TITLE, { description: error.message });
-    },
-  });
+      router.refresh();
+    });
+  }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))} className="flex flex-col gap-6">
+      <form onSubmit={form.handleSubmit(saveDetails)} className="flex flex-col gap-6">
         <div className="grid gap-6 md:grid-cols-2">
           <div className="flex flex-col gap-2">
             <div>
@@ -97,8 +90,8 @@ const DefaultDetailsForm = ({ defaultValues }: { defaultValues: ZodDefaultDetail
           </div>
         </div>
         <div className="flex justify-end">
-          <Button type="submit" disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? "Saving..." : "Save Details"}
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "Saving..." : "Save Details"}
           </Button>
         </div>
       </form>

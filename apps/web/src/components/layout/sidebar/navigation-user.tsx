@@ -1,7 +1,5 @@
 "use client";
 
-import { ChevronsUpDown, InfoIcon, LogOut } from "lucide-react";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,57 +8,28 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogContentContainer,
-  DialogDescription,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { clientAuth, useSession } from "@/lib/client-auth";
-import { usePathname, useRouter } from "next/navigation";
-import LogoIcon from "@/components/assets/logo-icon";
+import { ChevronsUpDown, LogOut } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MiniSwitch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
-import { useMounted } from "@mantine/hooks";
-import { useState } from "react";
-import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export function NavigationUser() {
-  const isMounted = useMounted();
   const session = useSession();
+  const router = useRouter();
 
-  if (session.isPending || !isMounted) {
-    return <Skeleton className="h-[142px] w-full" />;
-  }
+  if (session.isPending) return <Skeleton className="h-12 w-full" />;
+  if (!session.data) return null;
 
-  // if user is null, return a login state
-  if (!session.data) {
-    return (
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <div className="bg-muted-foreground/5 flex flex-col gap-1 rounded-lg p-4 shadow-xs">
-            <div className="instrument-serif font-semibold">Login</div>
-            <p className="text-muted-foreground text-xs">
-              Login to your account to save your data and access your data anywhere
-            </p>
-            <LoginButtonModal />
-          </div>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    );
+  async function handleSignOut() {
+    await clientAuth.signOut();
+    router.push("/sign-in");
+    router.refresh();
   }
 
   return (
     <SidebarMenu>
-      <SidebarMenuItem>
-        <AllowDataSync defaultChecked={session.data.user.allowedSavingData ?? false} />
-      </SidebarMenuItem>
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -74,7 +43,7 @@ export function NavigationUser() {
                   src={`https://api.dicebear.com/9.x/fun-emoji/svg?seed=${session.data.user.email}`}
                   alt={session.data.user.name}
                 />
-                <AvatarFallback className="rounded-lg">L</AvatarFallback>
+                <AvatarFallback className="rounded-lg">IN</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight tracking-tight">
                 <span className="instrument-sans truncate font-semibold capitalize">{session.data.user.name}</span>
@@ -96,7 +65,7 @@ export function NavigationUser() {
                     src={`https://api.dicebear.com/9.x/fun-emoji/svg?seed=${session.data.user.email}`}
                     alt={session.data.user.name}
                   />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                  <AvatarFallback className="rounded-lg">IN</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{session.data.user.name}</span>
@@ -107,12 +76,7 @@ export function NavigationUser() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={() => {
-                clientAuth.signOut();
-                session.refetch();
-              }}
-            >
+            <DropdownMenuItem onSelect={handleSignOut}>
               <LogOut />
               Log out
             </DropdownMenuItem>
@@ -122,121 +86,3 @@ export function NavigationUser() {
     </SidebarMenu>
   );
 }
-
-const LoginButtonModal = () => {
-  const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
-  const [loginStatus, setLoginStatus] = useState<"idle" | "pending" | "error">("idle");
-
-  const handleLogin = async () => {
-    setLoginStatus("pending");
-
-    try {
-      const { error } = await clientAuth.signIn.social({
-        provider: "google",
-        callbackURL: pathname,
-      });
-
-      if (error) {
-        setLoginStatus("error");
-      }
-    } catch {
-      setLoginStatus("error");
-    }
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button className="mt-2.5 w-fit" variant="default" size="xs">
-          Login
-        </Button>
-      </DialogTrigger>
-      <DialogContent hideCloseButton>
-        <DialogContentContainer className="flex items-center py-6 text-center">
-          <LogoIcon />
-          <div>
-            <DialogTitle className="instrument-serif text-3xl font-semibold">Welcome back!</DialogTitle>
-            <DialogDescription className="text-muted-foreground text-sm">
-              Login with your google account to continue
-            </DialogDescription>
-          </div>
-          <button
-            type="button"
-            disabled={loginStatus === "pending"}
-            aria-busy={loginStatus === "pending"}
-            aria-label="Google Login"
-            className="mt-2 cursor-pointer disabled:cursor-wait"
-            onClick={handleLogin}
-          >
-            <Image
-              className="dark:hidden"
-              src="/social/google-login-btn-light.svg"
-              alt=""
-              width={200}
-              height={40}
-              priority
-            />
-            <Image
-              className="hidden dark:block"
-              src="/social/google-login-btn-dark.svg"
-              alt=""
-              width={200}
-              height={40}
-              priority
-            />
-          </button>
-          {loginStatus === "error" && (
-            <p role="alert" className="text-destructive text-sm">
-              Couldn&apos;t start Google sign-in. Please try again.
-            </p>
-          )}
-        </DialogContentContainer>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-const AllowDataSync = ({ defaultChecked }: { defaultChecked: boolean }) => {
-  const [isDisabled, setIsDisabled] = useState(false);
-  const [isChecked, setIsChecked] = useState(defaultChecked);
-  const router = useRouter();
-
-  const handleChange = (checked: boolean) => {
-    setIsDisabled(true);
-
-    clientAuth.updateUser({
-      allowedSavingData: checked,
-      fetchOptions: {
-        onSuccess: () => {
-          setIsChecked(checked);
-          setIsDisabled(false);
-          // refetch page
-          router.refresh();
-        },
-      },
-    });
-  };
-
-  return (
-    <div className="bg-muted-foreground/10 mb-2 flex w-full flex-row items-center justify-between rounded-md p-2">
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger>
-            <div className="flex flex-row items-center justify-between gap-1.5 text-xs">
-              Allow Data Sync <InfoIcon className="text-muted-foreground size-3" />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent align="start" sideOffset={6}>
-            <p>
-              Allow data sync to your account. <br />
-              This will allow us to save your data on
-              <br /> our servers.
-            </p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-      <MiniSwitch disabled={isDisabled} defaultChecked={isChecked} onCheckedChange={handleChange} />
-    </div>
-  );
-};

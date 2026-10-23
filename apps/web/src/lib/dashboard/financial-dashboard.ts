@@ -5,10 +5,9 @@ const Money = Decimal.clone({ precision: 64, rounding: Decimal.ROUND_HALF_UP });
 
 type DashboardDate = Date | string;
 
-/** The dashboard query and locally saved invoices both satisfy this minimal shape. */
+/** Minimal server-backed invoice shape used by the financial dashboard. */
 export interface DashboardInvoice {
   id: string;
-  type: "local" | "server";
   status: "pending" | "success" | "error" | "expired" | "refunded";
   paidAt?: DashboardDate | null;
   invoiceFields: {
@@ -56,14 +55,6 @@ export interface DashboardCurrency {
 export interface FinancialDashboard {
   invoiceCount: number;
   currencies: DashboardCurrency[];
-}
-
-/** Prefer the server record when a locally cached copy has the same invoice ID. */
-export function mergeDashboardInvoices(
-  localInvoices: readonly DashboardInvoice[],
-  serverInvoices: readonly DashboardInvoice[],
-): DashboardInvoice[] {
-  return Array.from(new Map([...localInvoices, ...serverInvoices].map((invoice) => [invoice.id, invoice])).values());
 }
 
 /** Same formula as the PDF: percentages apply to the subtotal, then round the invoice to two decimals. */

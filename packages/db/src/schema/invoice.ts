@@ -12,20 +12,26 @@ interface InvoiceTheme {
   font?: InvoiceFontName;
 }
 
+interface InvoicePartyDefaults {
+  name: string;
+  address: string;
+  metadata: Array<{
+    label: string;
+    value: string;
+  }>;
+}
+
 // Enums
 export const invoiceStatusEnum = pgEnum("invoice_status", ["pending", "success", "error", "expired", "refunded"]);
-export const invoiceTypeEnum = pgEnum("invoice_type", ["local", "server"]);
 export const invoiceValueTypesEnum = pgEnum("invoice_value_types", ["fixed", "percentage"]);
 
 // export enum types
 export type InvoiceStatusType = (typeof invoiceStatusEnum.enumValues)[number];
-export type InvoiceTypeType = (typeof invoiceTypeEnum.enumValues)[number];
 export type InvoiceValueTypesType = (typeof invoiceValueTypesEnum.enumValues)[number];
 
 // Tables
 export const invoices = pgTable("invoices", {
   id: uuid("id").primaryKey().defaultRandom(),
-  type: invoiceTypeEnum("type").notNull().default("server"),
   status: invoiceStatusEnum("status").notNull().default("pending"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -33,6 +39,16 @@ export const invoices = pgTable("invoices", {
   userId: uuid("user_id")
     .references(() => users.id, { onDelete: "cascade" })
     .notNull(),
+});
+
+export const invoiceDefaults = pgTable("invoice_defaults", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  companyDetails: jsonb("company_details").$type<InvoicePartyDefaults>().notNull(),
+  clientDetails: jsonb("client_details").$type<InvoicePartyDefaults>().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const invoiceFields = pgTable("invoice_fields", {

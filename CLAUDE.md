@@ -39,30 +39,17 @@ Yarn 4 workspaces + Turborepo monorepo:
 
 Path aliases in `apps/web`: `@/*` → `src/*`, `@/icons` → `src/assets/icons`.
 
-### Local-first invoices (the core domain model)
+### Authenticated server data
 
-Invoices are created and stored **client-side in IndexedDB** by default — see `global/indexdb`, `lib/indexdb-queries`, and `constants/indexed-db.ts` (uses the `idb` library). The `invoiceTypeEnum` (`local` | `server`) distinguishes these.
+Dashboard routes require a Better Auth session and redirect signed-out users to `/sign-in` with a sanitized internal callback URL. React Server Components read invoices, saved defaults, and R2 asset keys directly. Client components receive serializable DTOs; convert Drizzle `Decimal` values and dates at the server boundary.
 
-Authenticated users can **migrate** local invoices into Postgres via the `invoice.migrateToDb` tRPC mutation. This is gated by the `allowedSavingData` boolean on the user (defaults to `false`, declared as a Better Auth `additionalField` in `lib/auth.ts`). Any write service checks `ctx.auth.user.allowedSavingData` before persisting.
+Mutations live in `apps/web/src/actions`. Every Server Action must independently validate the current session and its Zod input, enforce row or key ownership, report unexpected errors to Sentry, and return the shared serializable `ActionResult<T>` union. Revalidate affected paths after successful writes and refresh or navigate from the client.
 
-### tRPC layer (note: "services", not "routers")
-
-`apps/web/src/trpc`:
-
-- `init.ts` — defines `baseProcedure`, `createTRPCRouter`, `middleware`; uses a superjson transformer.
-- `procedures/authorizedProcedure.ts` — `baseProcedure` + `betterAuthMiddleware`, which injects `ctx.auth` (the Better Auth session) or throws `UNAUTHORIZED`.
-- `middlewares/awsS3Middleware.ts` — injects `ctx.s3` (Cloudflare R2 via the S3 client) for storage procedures.
-- `services/<domain>/` — **each procedure is its own file** (e.g. `services/invoice/insertInvoice.ts`), re-exported from the domain's `index.ts` router, which is composed in `routers/_app.ts`.
-
-### Effect-based error handling (standard pattern for write services)
-
-Mutations wrap their logic in `Effect.gen(function* () { ... })`, `yield*` tagged errors from `lib/effect/error/trpc.ts` (`ForbiddenError`, `NotFoundError`, `InternalServerError`, etc.), then `.pipe(Effect.catchTags({ ... }))` to map each tagged error onto a `TRPCError` with the right code, and finally `Effect.runPromise(...)`. Follow `services/invoice/insertInvoice.ts` as the canonical example when adding new procedures. External promises are wrapped with `Effect.tryPromise`, converting thrown errors via `parseCatchError`.
-
-`lib/neverthrow` provides an alternative `asyncTryCatch` returning a `CustomResult` discriminated union (`{ success, data } | { success, error }`) used in non-Effect call sites.
+Postgres is the only invoice store. Cloudflare R2 is the only logo/signature store. Saved sender/client defaults live in the one-to-one `invoice_defaults` table keyed by user ID.
 
 ### Database schema (heavily normalized)
 
-`packages/db/src/schema/invoice.ts`: an `invoices` row owns one `invoiceFields` row, which fans out into `invoiceCompanyDetails`, `invoiceClientDetails`, `invoiceDetails`, `invoiceMetadata`, and many `invoiceItems` — each with their own child metadata tables. `lib/db-queries/invoice/insertInvoice.ts` writes these as **sequential inserts** (not a single transaction); replicate that ordering when extending it.
+`packages/db/src/schema/invoice.ts`: an `invoices` row owns one `invoiceFields` row, which fans out into `invoiceCompanyDetails`, `invoiceClientDetails`, `invoiceDetails`, `invoiceMetadata`, and many `invoiceItems` — each with their own child metadata tables. `lib/db-queries/invoice/insertInvoice.ts` preserves the required sequential insert order inside a transaction; keep aggregate creates and replacements atomic when extending it.
 
 Money/amounts use **Decimal.js** end to end via the custom Drizzle `Numeric` type in `packages/db/src/custom/decimal.ts` (stores `numeric`, hydrates to `Decimal`). Never use JS floats for monetary values.
 

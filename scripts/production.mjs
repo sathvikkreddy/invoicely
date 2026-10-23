@@ -10,8 +10,10 @@ export const migrationLifecycleVersion = 1;
 
 const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 const requireDatabase = createRequire(new URL("../packages/db/package.json", import.meta.url));
-const productionHost = "ep-wispy-thunder-a1jhwivm.ap-southeast-1.aws.neon.tech";
-const repositoryUrl = "https://github.com/legions-developer/invoicely.git";
+const productionHost = "ep-morning-term-b4ki5l3e.c-6.us-east-2.aws.neon.tech";
+const productionDatabase = "neondb";
+const productionRole = "neondb_owner";
+const repositoryUrl = "https://github.com/sathvikkreddy/invoicely.git";
 const lockKeys = [1768846959, 1886547812];
 
 export function validateProductionDatabaseUrl(value) {
@@ -24,8 +26,8 @@ export function validateProductionDatabaseUrl(value) {
   if (
     !["postgres:", "postgresql:"].includes(url.protocol) ||
     ![productionHost, productionHost.replace(".", "-pooler.")].includes(url.hostname) ||
-    url.pathname !== "/Invoicely-prod" ||
-    decodeURIComponent(url.username) !== "Invoicely-prod_owner" ||
+    url.pathname !== `/${productionDatabase}` ||
+    decodeURIComponent(url.username) !== productionRole ||
     !url.password ||
     (url.port && url.port !== "5432") ||
     url.hash ||
@@ -306,7 +308,7 @@ export async function deploy(
         const secretsPath = join(directory, "secrets.json");
         await writeFile(secretsPath, JSON.stringify({ DATABASE_URL: env.DATABASE_URL }), { mode: 0o600 });
         await run(
-          ["workspace", "web", "opennextjs-cloudflare", "deploy", "--secrets-file", secretsPath],
+          ["workspace", "web", "opennextjs-cloudflare", "deploy", "--env", "", "--secrets-file", secretsPath],
           commandEnv,
           secrets,
           lockSignal,

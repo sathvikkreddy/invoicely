@@ -9,8 +9,8 @@ import { tmpdir } from "node:os";
 import test from "node:test";
 
 const direct =
-  "postgresql://Invoicely-prod_owner:test-production-password@ep-wispy-thunder-a1jhwivm.ap-southeast-1.aws.neon.tech/Invoicely-prod?sslmode=require";
-const pooled = direct.replace("ep-wispy-thunder-a1jhwivm.", "ep-wispy-thunder-a1jhwivm-pooler.");
+  "postgresql://neondb_owner:test-production-password@ep-morning-term-b4ki5l3e.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require";
+const pooled = direct.replace("ep-morning-term-b4ki5l3e.", "ep-morning-term-b4ki5l3e-pooler.");
 const commit = "a".repeat(40);
 const env = (values = {}) => ({
   WORKERS_CI: "1",
@@ -57,10 +57,10 @@ test("production URL derives direct connection and rejects alternate database/en
   assert.equal(validateProductionDatabaseUrl(direct), direct);
   for (const value of [
     "broken",
-    direct.replace("ep-wispy-thunder-a1jhwivm", "ep-royal-lab-a1j1ksvy"),
-    direct.replace("/Invoicely-prod?", "/invoicely?"),
+    direct.replace("ep-morning-term-b4ki5l3e", "ep-royal-lab-a1j1ksvy"),
+    direct.replace("/neondb?", "/invoicely?"),
     direct.replace("sslmode=require", "sslmode=disable"),
-    direct.replace("Invoicely-prod_owner:", "another_owner:"),
+    direct.replace("neondb_owner:", "another_owner:"),
     `${direct}&host=evil.example`,
     `${direct}&options=endpoint%3Dep-elsewhere`,
     direct.replace(".neon.tech/", ".neon.tech.evil.example/"),
@@ -125,6 +125,7 @@ test("migration and deploy share a lock; direct migration and pooled secret uplo
       } else {
         assert.equal(environment.DATABASE_URL, pooled);
         assert.equal(environment.CLOUDFLARE_API_TOKEN, "test-cloudflare-token");
+        assert.deepEqual(args.slice(0, 6), ["workspace", "web", "opennextjs-cloudflare", "deploy", "--env", ""]);
         assert.equal(args.at(-2), "--secrets-file");
         secretsPath = args.at(-1);
         assert.deepEqual(JSON.parse(await readFile(secretsPath, "utf8")), { DATABASE_URL: pooled });
@@ -197,7 +198,7 @@ test("main-head lookup uses only fixed public repository and verifies exact ref/
   await assertCurrentMain(commit, {
     exec: (command, args, options, callback) => {
       assert.equal(command, "git");
-      assert.deepEqual(args.slice(-2), ["https://github.com/legions-developer/invoicely.git", "refs/heads/main"]);
+      assert.deepEqual(args.slice(-2), ["https://github.com/sathvikkreddy/invoicely.git", "refs/heads/main"]);
       assert.equal(options.env.GIT_TERMINAL_PROMPT, "0");
       callback(null, `${commit}\trefs/heads/main\n`);
     },

@@ -18,5 +18,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
 }
 
 const absoluteUrl = (path: string) => {
-  return `https://invoicely.gg${path}`;
+  return `https://invoicely.sathvikkreddy.xyz${path}`;
 };

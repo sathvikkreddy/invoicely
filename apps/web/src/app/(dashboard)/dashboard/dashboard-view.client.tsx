@@ -25,7 +25,6 @@ interface DashboardViewProps {
   isRefreshing: boolean;
   onRefresh: () => void;
   errorMessage?: string;
-  signedIn: boolean;
 }
 
 function DashboardView({
@@ -38,7 +37,6 @@ function DashboardView({
   isRefreshing,
   onRefresh,
   errorMessage,
-  signedIn,
 }: DashboardViewProps) {
   const currency = dashboard.currencies.find((entry) => entry.currency === selectedCurrency) ?? dashboard.currencies[0];
 
@@ -192,11 +190,7 @@ function DashboardView({
 
           <footer className="text-foreground/65 flex flex-wrap items-start justify-between gap-3 text-xs leading-relaxed">
             <div>
-              <p>
-                {signedIn
-                  ? "Includes invoices on this device and in your account."
-                  : "Showing invoices on this device. Sign in to include your saved invoices."}
-              </p>
+              <p>Includes all invoices saved to your account.</p>
               <p>Amounts are reported separately for each currency.</p>
             </div>
             <Link

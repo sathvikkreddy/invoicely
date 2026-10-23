@@ -1,6 +1,6 @@
 "use client"; // Error boundaries must be Client Components
 
-import { parseCatchError } from "@/lib/neverthrow/parseCatchError";
+import { parseCatchError } from "@/lib/errors/parse-catch-error";
 import PDFError from "@/components/layout/pdf/pdf-error";
 import { Button } from "@/components/ui/button";
 

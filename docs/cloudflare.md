@@ -1,6 +1,6 @@
 # Deploy to Cloudflare Workers
 
-The Next.js application in `apps/web` can be deployed to Workers with the [OpenNext adapter](https://opennext.js.org/cloudflare/get-started). The active deployment model is production plus isolated branch previews. The named staging Worker described below is optional; it does not need to be provisioned for this setup. Adding the deployment configuration does not move production traffic.
+The Next.js application in `apps/web` can be deployed to Workers with the [OpenNext adapter](https://opennext.js.org/cloudflare/get-started). Production deploys from `main`; isolated branch previews are supported but remain disabled until their Neon management settings are supplied. The named staging Worker described below is optional; it does not need to be provisioned for this setup. Adding the deployment configuration does not move production traffic.
 
 The application continues to use Neon PostgreSQL and the existing S3-compatible R2 client. Hosting migration does not require a database migration, a new database driver, or copying uploaded assets.
 
@@ -21,7 +21,7 @@ Run `yarn dev` for the Next.js development server. The app uses Neon and the S3-
 
 `initOpenNextCloudflareForDev` is intentionally omitted from `next.config.ts`: its binding proxy cannot run the internal `DOQueueHandler` from the production Wrangler configuration, causing a missing Durable Object export warning during `yarn dev`. If application code starts using `getCloudflareContext` directly, configure the helper with bindings suitable for Next.js development. Use `yarn preview:cloudflare` to test the generated Worker and its revalidation queue.
 
-Before the preview build, set `NEXT_PUBLIC_BASE_URL` and `BETTER_AUTH_URL` to `http://localhost:8787`, and `NEXT_PUBLIC_TRPC_BASE_URL` to `http://localhost:8787/api/trpc`. Rebuild whenever public values or the origin change. `.dev.vars` selects `NEXTJS_ENV=development`; OpenNext reads application values from the Next.js `.env` files. See [environment variable loading](https://opennext.js.org/cloudflare/howtos/env-vars).
+Before the preview build, set `NEXT_PUBLIC_BASE_URL` and `BETTER_AUTH_URL` to `http://localhost:8787`. Rebuild whenever public values or the origin change. `.dev.vars` selects `NEXTJS_ENV=development`; OpenNext reads application values from the Next.js `.env` files. See [environment variable loading](https://opennext.js.org/cloudflare/howtos/env-vars).
 
 Run commands from the repository root:
 
@@ -32,25 +32,25 @@ yarn deploy:cloudflare       # Manual build/deploy; does not run production migr
 yarn build                   # Build ordinary Next.js output
 ```
 
-The root Cloudflare build wraps Turbo so native hosted preview builds can prepare their database first. The corresponding workspace preview and deploy commands use existing build output. Automatic production migrations run only through the native Cloudflare production deploy command below; local commands and the root Turbo deployment shortcut retain their manual behavior.
+The root Cloudflare build wraps Turbo so native hosted preview builds can prepare their database first. The corresponding workspace preview and deploy commands use existing build output. Automatic production migrations run only through the native Cloudflare production deploy command below; local commands and the root Turbo deployment shortcut retain their manual behavior. The workspace build explicitly passes OpenNext's `--dangerouslyUseUnsupportedNextVersion` flag because this branch remains on Next.js 15, which is now outside Next.js' support window; remove that flag as part of the required Next.js 16 upgrade.
 
 ## Build and runtime settings
 
 Configure values separately in Workers **Build variables and secrets** and Worker **Variables and Secrets**. Build settings do not automatically become runtime settings. This application's environment validator also loads server configuration during the build, so configure the server values in both places. Native preview builds generate their own `DATABASE_URL`; the guarded production deployment uses its configured production build URL. Both deployment wrappers explicitly upload their database URL as a runtime secret. The other application values remain in the existing Cloudflare settings.
 
-| Name                                                         | Build                                | Runtime           | Store as        |
-| ------------------------------------------------------------ | ------------------------------------ | ----------------- | --------------- |
-| `NEXT_PUBLIC_BASE_URL`, `NEXT_PUBLIC_TRPC_BASE_URL`          | Required; compiled into browser code | Required          | Variables       |
-| `NEXT_PUBLIC_POSTHOG_HOST`, `NEXT_PUBLIC_POSTHOG_KEY`        | Required; compiled into browser code | Required          | Variables       |
-| `DATABASE_URL`                                               | Required                             | Required          | Secret          |
-| `GOOGLE_CLIENT_ID`                                           | Required                             | Required          | Variable        |
-| `GOOGLE_CLIENT_SECRET`                                       | Required                             | Required          | Secret          |
-| `BETTER_AUTH_URL`                                            | Set to the selected origin           | Required          | Variable        |
-| `BETTER_AUTH_SECRET`                                         | Set for auth initialization          | Required          | Secret          |
-| `CF_R2_ENDPOINT`, `CF_R2_BUCKET_NAME`, `CF_R2_PUBLIC_DOMAIN` | Required                             | Required          | Variables       |
-| `CF_R2_ACCESS_KEY_ID`, `CF_R2_SECRET_ACCESS_KEY`             | Required                             | Required          | Secrets         |
-| `NEXT_PUBLIC_SENTRY_DSN`                                     | Optional; enables error reporting    | Uses compiled DSN | Public variable |
-| `SENTRY_AUTH_TOKEN`                                          | Optional, for source-map uploads     | Unused            | Build secret    |
+| Name                                                         | Build                                | Runtime              | Store as        |
+| ------------------------------------------------------------ | ------------------------------------ | -------------------- | --------------- |
+| `NEXT_PUBLIC_BASE_URL`                                       | Required; compiled into browser code | Required             | Variables       |
+| `NEXT_PUBLIC_POSTHOG_HOST`, `NEXT_PUBLIC_POSTHOG_KEY`        | Optional; compiled into browser code | Uses compiled values | Variables       |
+| `DATABASE_URL`                                               | Required                             | Required             | Secret          |
+| `GOOGLE_CLIENT_ID`                                           | Required                             | Required             | Variable        |
+| `GOOGLE_CLIENT_SECRET`                                       | Required                             | Required             | Secret          |
+| `BETTER_AUTH_URL`                                            | Set to the selected origin           | Required             | Variable        |
+| `BETTER_AUTH_SECRET`                                         | Set for auth initialization          | Required             | Secret          |
+| `CF_R2_ENDPOINT`, `CF_R2_BUCKET_NAME`, `CF_R2_PUBLIC_DOMAIN` | Required                             | Required             | Variables       |
+| `CF_R2_ACCESS_KEY_ID`, `CF_R2_SECRET_ACCESS_KEY`             | Required                             | Required             | Secrets         |
+| `NEXT_PUBLIC_SENTRY_DSN`                                     | Optional; enables error reporting    | Uses compiled DSN    | Public variable |
+| `SENTRY_AUTH_TOKEN`                                          | Optional, for source-map uploads     | Unused               | Build secret    |
 
 Browser, server, and edge Sentry configurations use the same `NEXT_PUBLIC_SENTRY_DSN`. Set it before building and rebuild after changing it; runtime-only changes do not replace the compiled DSN.
 
@@ -85,19 +85,19 @@ Connect the repository to Workers Builds. Use the repository root (`/`) as the r
 | Build command  | `yarn build:cloudflare`                | `yarn build:cloudflare`                        |
 | Deploy command | `yarn workspace web deploy:cloudflare` | `yarn workspace web deploy:cloudflare:preview` |
 
-Keep **Enable Preview Builds** enabled in **Settings → Builds → Branch control**, and use the existing build and deploy commands above. Configure the additional Neon values in Preview Base as described below. [Workers Builds configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/) describes the build, deploy, and environment settings.
+Use the existing build and deploy commands above. Keep **Builds for Preview branches** disabled until all additional Neon values in Preview Base are configured and verified as described below; production builds from `main` remain enabled independently. [Workers Builds configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/) describes the build, deploy, and environment settings.
 
 ### Production migrations
 
 Keep the production build command `yarn build:cloudflare` and deploy command `yarn workspace web deploy:cloudflare`. Cloudflare finishes the application build first; the deploy command then runs `scripts/production.mjs deploy`. Do not replace this dashboard deploy command with the root `yarn deploy:cloudflare` shortcut: the guard requires Cloudflare's native build identity.
 
-In the **Production** build settings, `DATABASE_URL` must point to the existing production database `Invoicely-prod`, owner `Invoicely-prod_owner`, at `ep-wispy-thunder-a1jhwivm.ap-southeast-1.aws.neon.tech` or its pooled endpoint, with SSL enabled. Leave `CLOUDFLARE_PREVIEW` unset. Production needs no Neon management key, new Cloudflare token, or database credentials in GitHub. The wrapper accepts only the native `main` build and known production database; malformed build identity, preview context, and deploy overrides stop it.
+In the **Production** build settings, `DATABASE_URL` must point to the verified production database `neondb`, owner `neondb_owner`, at `ep-morning-term-b4ki5l3e.c-6.us-east-2.aws.neon.tech` or its pooled endpoint, with SSL enabled. Leave `CLOUDFLARE_PREVIEW` unset. Production needs no Neon management key, new Cloudflare token, or database credentials in GitHub. The wrapper accepts only the native `main` build and known production database; malformed build identity, preview context, and deploy overrides stop it.
 
 The wrapper acquires a PostgreSQL advisory lock through a dedicated direct connection and holds it through migration and deployment. It checks that the build commit is still the current `main` head, runs `yarn workspace @invoicely/db db:migrate` over the direct connection, and checks `main` again before deploying. Migration failure, stale commit, or loss of the lock connection stops deployment. Concurrent guarded production deployments wait for the same lock, with a bounded timeout.
 
 After migrations succeed, OpenNext deploys with a temporary owner-readable secrets file containing the original production `DATABASE_URL`. This sets runtime access to the same production database used by the build and migrations; other dashboard-managed secrets remain in place. The file is removed after the deployment attempt. Production runtime credentials are synchronized by this deployment step, not by editing the build secret alone.
 
-Only committed migrations run; this process never generates SQL or uses `db:push`. Keep schema changes compatible with the currently serving app: migrations can commit before a later head check or deployment fails, and application rollback does not undo them. The live production schema and migration history have not been verified by this setup. Initial migrations tolerate existing objects, and older migration files were edited historically, so successful execution alone does not establish a clean baseline.
+Only committed migrations run; this process never generates SQL or uses `db:push`. Keep schema changes compatible with the currently serving app: migrations can commit before a later head check or deployment fails, and application rollback does not undo them. The production target was verified read-only during setup: it contains the defaults table and none of the removed storage-era fields or enum. Initial migrations tolerate existing objects, and older migration files were edited historically, so keep reviewing generated migrations before deployment.
 
 ### Optional staging Worker
 
@@ -123,17 +123,21 @@ Every new build starts from the dev baseline and applies the current committed m
 
 In **Workers & Pages → invoicely-web → Settings → Builds → Previews Base tab → Variables and secrets**, configure:
 
-| Name                    | Store as | Value                                                  |
-| ----------------------- | -------- | ------------------------------------------------------ |
-| `NEON_API_KEY`          | Secret   | Neon management API key with access to the dev project |
-| `NEON_PROJECT_ID`       | Variable | `bitter-voice-28471675`                                |
-| `NEON_PARENT_BRANCH_ID` | Variable | `br-fancy-voice-a17qlbyg`                              |
+| Name                          | Store as | Value                                                       |
+| ----------------------------- | -------- | ----------------------------------------------------------- |
+| `NEON_API_KEY`                | Secret   | Neon management API key with access to the preview project  |
+| `NEON_PROJECT_ID`             | Variable | Neon project ID                                             |
+| `NEON_PARENT_BRANCH_ID`       | Variable | Isolated preview-baseline branch ID                         |
+| `NEON_PARENT_ENDPOINT_ID`     | Variable | Read/write endpoint owned by that baseline branch           |
+| `NEON_PRODUCTION_ENDPOINT_ID` | Variable | Production endpoint ID, which preview URLs must never use   |
+| `NEON_DATABASE_NAME`          | Variable | Database to clone and migrate                               |
+| `NEON_ROLE_NAME`              | Variable | Database owner role used by the generated connection string |
 
 Keep `CLOUDFLARE_PREVIEW=true` in preview build settings and leave it unset for production. Keep the existing application build and runtime settings in Cloudflare. `NEON_API_KEY` is only a build secret; do not add it to Worker runtime variables or secrets. The build script strips Neon management settings before starting migrations, the application build, and Wrangler. The generated preview `DATABASE_URL` replaces any inherited build or runtime database URL during the managed build and upload.
 
-New previews inherit Preview Base configuration. Updating Base does not update already-created previews: add these three build settings to any existing branch Preview that needs another build, or recreate that Preview from the updated Base. See [Preview configuration](https://developers.cloudflare.com/workers/previews/configuration/).
+New previews inherit Preview Base configuration. Updating Base does not update already-created previews: add these build settings to any existing branch Preview that needs another build, or recreate that Preview from the updated Base. See [Preview configuration](https://developers.cloudflare.com/workers/previews/configuration/).
 
-The Neon parent is the dev baseline, even though its current branch name is `production`. Keep this baseline's schema and migration history aligned with deployed production and use test data. The script verifies that this parent owns the known dev endpoint `ep-royal-lab-a1j1ksvy` before creating or cleaning up branches. New branches use database `invoicely` and role `invoicely_owner`. The separate production database is not used for previews.
+Use an isolated baseline containing test data, with schema and migration history aligned to production. The script verifies that `NEON_PARENT_BRANCH_ID` owns `NEON_PARENT_ENDPOINT_ID`, rejects generated URLs that point at either the parent or production endpoint, and enforces the configured database and owner role. Do not use the production branch as the preview parent.
 
 Use preview storage values to isolate uploads as well. If the existing R2 values point to a shared bucket, previews still share uploaded assets even though their databases are isolated. The Google credentials and Better Auth secret remain shared for the OAuth proxy described below. Keep automatic builds limited to trusted repository branches because builds have access to these credentials and the Neon management key.
 
@@ -143,7 +147,7 @@ The successful build writes its generated database URL to the ignored `apps/web/
 
 The upload command populates the cache and uses Wrangler's `preview --secrets-file` support to upload the application code and generated runtime `DATABASE_URL` together. The temporary secrets file contains only that database secret; the other existing Cloudflare application settings remain in place. The script removes its temporary secret and handoff files after the upload attempt. Setting a build variable alone does not configure the Worker runtime, so do not replace this upload command with a bare `wrangler preview` invocation.
 
-Keep native preview builds enabled, save the settings, and merge the script changes before testing an updated trusted branch. Adding the Neon settings alone does not change an already-deployed Preview's database. Production migration and deployment remain separate from this preview lifecycle.
+After all preview values are configured and `node scripts/preview.mjs verify-parent` succeeds with those values, enable native preview builds and test an updated trusted branch. Adding the Neon settings alone does not change an already-deployed Preview's database. Production migration and deployment remain separate from this preview lifecycle.
 
 ### GitHub build reports
 
@@ -161,17 +165,17 @@ Preview comments apply only to the current head of an open repository PR. A prod
 
 ### Optional GitHub cleanup
 
-The workflow in `.github/workflows/neon-preview-cleanup.yml` runs when a repository Git branch is deleted, waits 20 minutes for in-flight builds to finish, and removes its Neon build branches. Closing a PR alone does not trigger cleanup. It does not deploy to Cloudflare. Keep the existing GitHub Actions secret `NEON_API_KEY` and variables `NEON_PROJECT_ID` and `NEON_PARENT_BRANCH_ID` if using this cleanup. No `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, or `PREVIEW_ENV_JSON` is required in GitHub.
+The workflow in `.github/workflows/neon-preview-cleanup.yml` runs when a repository Git branch is deleted, waits 20 minutes for in-flight builds to finish, and removes its Neon build branches. Closing a PR alone does not trigger cleanup. It does not deploy to Cloudflare. Configure the GitHub Actions secret `NEON_API_KEY` and variables `NEON_PROJECT_ID`, `NEON_PARENT_BRANCH_ID`, and `NEON_PARENT_ENDPOINT_ID` before enabling previews. No `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, or `PREVIEW_ENV_JSON` is required in GitHub.
 
 Cleanup verifies the dev parent and deletes only matching unprotected preview database branches. Cancel outstanding Cloudflare builds before deleting a Git branch: a queued or manually started build after the grace period can create another database that needs later cleanup. A Cloudflare Preview that still points to a deleted database can no longer serve database-backed requests; remove unused previews in Cloudflare too. Delete retired Git branches to release their accumulated Neon branches.
 
 ### Preview domains and authentication
 
-The production Worker owns `invoicely.gg`. Its preview-only custom domain is `preview.invoicely.gg`; use the branch Preview URL reported by Cloudflare. These routes are checked into Wrangler configuration, with production and preview `workers.dev` URLs disabled. The optional staging Worker retains its `workers.dev` URL and has no custom domains. Cloudflare manages domain DNS and certificates; initial preview certificate issuance may take time. See [custom preview domains](https://developers.cloudflare.com/workers/previews/custom-domains/).
+The production Worker owns `invoicely.sathvikkreddy.xyz`. Its preview-only custom domain is `preview.invoicely.sathvikkreddy.xyz`; use the branch Preview URL reported by Cloudflare. These routes are checked into Wrangler configuration, with production and preview `workers.dev` URLs disabled. The optional staging Worker retains its `workers.dev` URL and has no custom domains. Cloudflare manages domain DNS and certificates; initial preview certificate issuance may take time. See [custom preview domains](https://developers.cloudflare.com/workers/previews/custom-domains/).
 
-Browser auth and tRPC requests use the current preview origin. Preview server auth derives the HTTPS allowlist `*.preview.invoicely.gg` from `BETTER_AUTH_URL=https://invoicely.gg`; no Worker name or account subdomain is hardcoded in auth. Keep that canonical value in preview build and runtime settings. Production auth uses it directly. The public production URL variables remain canonical metadata and server fallback URLs. Custom preview HTML, API responses, and static assets receive `X-Robots-Tag: noindex`; production does not. If the canonical domain changes, update Wrangler routes and the preview header rules with it.
+Browser authentication uses the current preview origin. Preview server auth derives the HTTPS allowlist `*.preview.invoicely.sathvikkreddy.xyz` from `BETTER_AUTH_URL=https://invoicely.sathvikkreddy.xyz`; no Worker name or account subdomain is hardcoded in auth. Keep that canonical value in preview build and runtime settings. Production auth uses it directly. The public production URL remains the canonical metadata and server fallback URL. Custom preview HTML, API responses, and static assets receive `X-Robots-Tag: noindex`; production does not. If the canonical domain changes, update Wrangler routes and the preview header rules with it.
 
-Google login uses Better Auth's [OAuth proxy](https://better-auth.com/docs/plugins/oauth-proxy) through the existing authorized `https://invoicely.gg/api/auth/callback/google` callback, then creates the session on the preview origin. Deploy this auth version to the application serving `https://invoicely.gg` before testing preview sign-in, even if that application is still hosted on Vercel. Production and previews must use the same Better Auth version and `BETTER_AUTH_SECRET`, along with the existing Google credentials. No per-preview Google callback registration is needed after the production proxy is available. Keep automatic builds limited to trusted repository branches because these previews use shared authentication credentials.
+Google login uses Better Auth's [OAuth proxy](https://better-auth.com/docs/plugins/oauth-proxy) through the authorized `https://invoicely.sathvikkreddy.xyz/api/auth/callback/google` callback, then creates the session on the preview origin. Deploy this auth version to the application serving `https://invoicely.sathvikkreddy.xyz` before testing preview sign-in. Production and previews must use the same Better Auth version and `BETTER_AUTH_SECRET`, along with the existing Google credentials. No per-preview Google callback registration is needed after the production proxy is available. Keep automatic builds limited to trusted repository branches because these previews use shared authentication credentials.
 
 The hosted Preview command populates the build-time Next.js cache into the Preview's own static assets, then runs `wrangler preview`. Unlike production, this cache is read-only: previews support the current static pages and dynamic request handling, but do not perform ISR or background revalidation. Revisit this configuration if server-side timed revalidation or `revalidatePath`/`revalidateTag` is added. Preview caches have no R2 or Durable Object queue bindings; a [Preview service binding targets production](https://developers.cloudflare.com/workers/previews/resources/#service-bindings), so the production self-reference must not be copied into the preview configuration.
 
@@ -195,7 +199,7 @@ A successful build or Wrangler dry run does not establish that authenticated app
 
 - Landing pages, blog pages, unknown blog slugs, and missing-page responses.
 - Google login, session persistence/refresh, and logout.
-- Saving, loading, updating, and deleting an invoice; saved invoice defaults; local invoice migration.
+- Saving, loading, updating, and deleting an invoice; saved invoice defaults; invoice import.
 - Uploading, listing, displaying, and deleting logos and signatures in the preview R2 asset bucket.
 - PDF preview and download, including CJK fonts and invoices spanning several pages.
 - Optimized images, generated Open Graph images, PostHog `/ingest` requests, and Sentry reporting/source maps.
@@ -207,8 +211,8 @@ Compare Wrangler's uncompressed `Total Upload` with the [current Worker size lim
 
 1. Complete preview validation and retain the working Vercel deployment for rollback.
 2. Set production build/runtime values. Preserve the existing Neon database, R2 asset bucket, public asset domain, object keys, and `BETTER_AUTH_SECRET`.
-3. Keep `NEXT_PUBLIC_BASE_URL` and `BETTER_AUTH_URL` at `https://invoicely.gg`, and `NEXT_PUBLIC_TRPC_BASE_URL` at `https://invoicely.gg/api/trpc`. Keep the existing Google OAuth callback authorized. Preserving the browser origin retains access to locally stored IndexedDB invoices and keeps auth cookie scope consistent.
-4. Merge the validated change into `main` and let native Workers Builds run the production build and guarded migration/deployment sequence above. The checked-in routes attach `invoicely.gg` for production and `preview.invoicely.gg` for previews only. When moving from another host, remove only its conflicting DNS records before attaching the domains; preserve email, storage, and unrelated records. A staging deployment explicitly has no custom domains.
-5. After routing changes, verify production login, saved invoices, existing assets, local invoices, and PDF generation. Disable automatic Vercel production deployments once the cutover is confirmed.
+3. Keep `NEXT_PUBLIC_BASE_URL` and `BETTER_AUTH_URL` at `https://invoicely.sathvikkreddy.xyz`. Keep the matching Google OAuth callback authorized so auth cookie scope remains consistent.
+4. Merge the validated change into `main` and let native Workers Builds run the production build and guarded migration/deployment sequence above. The checked-in routes attach `invoicely.sathvikkreddy.xyz` for production and `preview.invoicely.sathvikkreddy.xyz` for previews only. Preserve email, storage, and unrelated DNS records. A staging deployment explicitly has no custom domains.
+5. After routing changes, verify production login, saved invoices, existing assets, invoice imports, and PDF generation. Disable automatic Vercel production deployments once the cutover is confirmed.
 
 To roll back, restore the previous domain routing to the retained Vercel deployment. Keep the same database, asset storage, auth secret, and public origin during rollback. Database migrations are not reversed automatically; the restored application must remain compatible with the current schema.

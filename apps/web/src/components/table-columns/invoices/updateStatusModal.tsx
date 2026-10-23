@@ -2,16 +2,16 @@
 
 import {
   Dialog,
+  DialogClose,
   DialogContent,
+  DialogContentContainer,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogContentContainer,
   DialogHeaderContainer,
   DialogIcon,
-  DialogClose,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   FileAlertIcon,
@@ -21,115 +21,66 @@ import {
   HourglassStartIcon,
   PriorityMediumIcon,
 } from "@/assets/icons";
-import { updateInvoiceStatus } from "@/lib/indexdb-queries/updateInvoiceStatus";
-import type { InvoiceTypeType } from "@invoicely/db/schema/invoice";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { parseCatchError } from "@/lib/neverthrow/parseCatchError";
+import { updateInvoiceStatusAction } from "@/actions/invoice-actions";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { invoiceStatusEnum } from "@invoicely/db/schema/invoice";
 import { FormSelect } from "@/components/ui/form/form-select";
-import { FormButton } from "@/components/ui/form/form-button";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SelectItem } from "@/components/ui/select";
 import { Form } from "@/components/ui/form/form";
 import { Button } from "@/components/ui/button";
+import { useState, useTransition } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { useTRPC } from "@/trpc/client";
-import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-interface UpdateStatusModalProps {
-  type: InvoiceTypeType;
-  invoiceId: string;
-  currentStatus: string;
-}
-
 const invoiceStatusSchema = z.object({
-  id: z.string(),
   status: z.enum(invoiceStatusEnum.enumValues),
 });
 
 type InvoiceStatusSchema = z.infer<typeof invoiceStatusSchema>;
 
-const UpdateStatusModal = ({ invoiceId, type, currentStatus }: UpdateStatusModalProps) => {
+interface UpdateStatusModalProps {
+  invoiceId: string;
+  currentStatus: InvoiceStatusSchema["status"];
+}
+
+const UpdateStatusModal = ({ invoiceId, currentStatus }: UpdateStatusModalProps) => {
   const [open, setOpen] = useState(false);
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-
-  // Postgres Mutation
-  const updateServerInvoiceStatusMutation = useMutation(
-    trpc.invoice.updateStatus.mutationOptions({
-      onSuccess: () => {
-        toast.success("Status updated successfully!", {
-          description: "The status of the invoice has been updated successfully.",
-        });
-        queryClient.invalidateQueries({ queryKey: trpc.invoice.list.queryKey() });
-      },
-      onError: (error) => {
-        toast.error("Failed to update status!", {
-          description: parseCatchError(error),
-        });
-      },
-    }),
-  );
-
-  // IDB Mutation
-  const updateIDBInvoiceStatusMutation = useMutation({
-    mutationFn: async (data: InvoiceStatusSchema) => {
-      await updateInvoiceStatus(data.id, data.status);
-    },
-    onSuccess: () => {
-      toast.success("Status updated successfully!", {
-        description: "The status of the invoice has been updated successfully.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["idb-invoices"] });
-    },
-    onError: (error) => {
-      toast.error("Failed to update status!", {
-        description: parseCatchError(error),
-      });
-    },
-  });
-
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   const form = useForm<InvoiceStatusSchema>({
     resolver: zodResolver(invoiceStatusSchema),
-    defaultValues: {
-      id: invoiceId,
-      status: currentStatus as (typeof invoiceStatusEnum.enumValues)[number],
-    },
+    defaultValues: { status: currentStatus },
   });
 
-  const onSubmit = async (data: InvoiceStatusSchema) => {
-    if (type === "server") {
-      // Updating the status of the invoice in the database
-      await updateServerInvoiceStatusMutation.mutateAsync({
-        id: invoiceId,
-        status: data.status,
-      });
-    } else {
-      // Updating status of invoice in local idb
-      await updateIDBInvoiceStatusMutation.mutateAsync({
-        id: invoiceId,
-        status: data.status,
-      });
-    }
+  function onSubmit(data: InvoiceStatusSchema) {
+    startTransition(async () => {
+      const result = await updateInvoiceStatusAction({ id: invoiceId, status: data.status });
 
-    // Close the modal
-    setOpen(false);
-  };
+      if (!result.success) {
+        toast.error("Failed to update status", { description: result.error.message });
+        return;
+      }
+
+      toast.success("Status updated successfully", { description: result.data.message });
+      setOpen(false);
+      router.refresh();
+    });
+  }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(nextOpen) => !isPending && setOpen(nextOpen)}>
       <DialogTrigger asChild>
-        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+        <DropdownMenuItem onSelect={(event) => event.preventDefault()}>
           <PriorityMediumIcon />
           <span>Update Status</span>
         </DropdownMenuItem>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent hideCloseButton={isPending}>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeaderContainer>
@@ -138,7 +89,7 @@ const UpdateStatusModal = ({ invoiceId, type, currentStatus }: UpdateStatusModal
               </DialogIcon>
               <DialogHeader>
                 <DialogTitle>Update Invoice Status</DialogTitle>
-                <DialogDescription>Update the status of the invoice to the new status.</DialogDescription>
+                <DialogDescription>Choose the current payment status for this invoice.</DialogDescription>
               </DialogHeader>
             </DialogHeaderContainer>
             <DialogContentContainer>
@@ -150,33 +101,32 @@ const UpdateStatusModal = ({ invoiceId, type, currentStatus }: UpdateStatusModal
                 <Label>Change Status</Label>
                 <FormSelect name="status" reactform={form}>
                   <SelectItem value="pending">
-                    <HourglassStartIcon />
-                    <span>Pending</span>
+                    <HourglassStartIcon /> Pending
                   </SelectItem>
                   <SelectItem value="success">
-                    <FileCheckIcon />
-                    <span>Success</span>
+                    <FileCheckIcon /> Success
                   </SelectItem>
                   <SelectItem value="error">
-                    <FileBanIcon />
-                    <span>Error</span>
+                    <FileBanIcon /> Error
                   </SelectItem>
                   <SelectItem value="expired">
-                    <FileAlertIcon />
-                    <span>Expired</span>
+                    <FileAlertIcon /> Expired
                   </SelectItem>
                   <SelectItem value="refunded">
-                    <FileRefreshIcon />
-                    <span>Refunded</span>
+                    <FileRefreshIcon /> Refunded
                   </SelectItem>
                 </FormSelect>
               </div>
             </DialogContentContainer>
             <DialogFooter>
               <DialogClose asChild>
-                <Button variant="outline">Cancel</Button>
+                <Button variant="outline" disabled={isPending}>
+                  Cancel
+                </Button>
               </DialogClose>
-              <FormButton>Update</FormButton>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? "Updating..." : "Update"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

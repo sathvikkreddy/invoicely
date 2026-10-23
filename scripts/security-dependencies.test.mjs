@@ -8,7 +8,6 @@ import { runInNewContext } from "node:vm";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import { evaluate } from "@mdx-js/mdx";
-import Decimal from "decimal.js";
 import test from "node:test";
 
 const webRequire = createRequire(new URL("../apps/web/package.json", import.meta.url));
@@ -20,41 +19,6 @@ async function loadTypeScript(relativePath, globals = {}) {
   runInNewContext(code, { module, exports: module.exports, require: createRequire(url), ...globals });
   return module.exports;
 }
-
-test("the app data transformer preserves invoice precision, dates, and large integers", async () => {
-  const { superjsonTransformer } = await loadTypeScript("../apps/web/src/trpc/transformer/index.ts");
-  const invoice = {
-    issuedAt: new Date("2026-10-05T08:30:00.000Z"),
-    sequence: 9007199254740993n,
-    items: [{ quantity: new Decimal("3"), unitPrice: new Decimal("1234567890.123456789") }],
-    discount: new Decimal("0"),
-    paidAt: null,
-  };
-
-  const restored = superjsonTransformer.deserialize(superjsonTransformer.serialize(invoice));
-
-  assert.ok(restored.issuedAt instanceof Date);
-  assert.equal(restored.issuedAt.toISOString(), invoice.issuedAt.toISOString());
-  assert.equal(restored.sequence, invoice.sequence);
-  assert.ok(Decimal.isDecimal(restored.items[0].quantity));
-  assert.ok(Decimal.isDecimal(restored.items[0].unitPrice));
-  assert.equal(restored.items[0].unitPrice.toString(), "1234567890.123456789");
-  assert.equal(restored.items[0].quantity.toString(), "3");
-  assert.ok(Decimal.isDecimal(restored.discount));
-  assert.equal(restored.discount.toString(), "0");
-  assert.equal(restored.paidAt, null);
-  assert.equal(superjsonTransformer.deserialize(invoice), invoice);
-});
-
-test("the app data transformer rejects serialized prototype pollution", async () => {
-  const { superjsonTransformer } = await loadTypeScript("../apps/web/src/trpc/transformer/index.ts");
-
-  assert.throws(
-    () => superjsonTransformer.deserialize('[{"__proto__":1},{"securityRegressionPolluted":2},true]'),
-    /__proto__/,
-  );
-  assert.equal(Object.prototype.securityRegressionPolluted, undefined);
-});
 
 test("the MDX frontmatter plugin compiles TOML metadata with its patched parser", async () => {
   const source = `+++
@@ -85,6 +49,28 @@ tags = ["invoices", "freelancers"]
   const { createElement } = webRequire("react");
   const { renderToStaticMarkup } = webRequire("react-dom/server");
   assert.equal(renderToStaticMarkup(createElement(compiled.default)), "<h1>Invoice &amp; receipt</h1>");
+});
+
+test("authentication callback URLs stay inside protected application routes", async () => {
+  const { createCallbackUrl, getSafeCallbackUrl } = await loadTypeScript("../apps/web/src/lib/auth-callback.ts", {
+    URL,
+    URLSearchParams,
+  });
+
+  assert.equal(
+    getSafeCallbackUrl("/edit/5b38e1cc-d9bd-4dab-9009-b874792a561c?mode=preview#invoice"),
+    "/edit/5b38e1cc-d9bd-4dab-9009-b874792a561c?mode=preview#invoice",
+  );
+  assert.equal(getSafeCallbackUrl(["/assets", "https://evil.example/dashboard"]), "/assets");
+  assert.equal(getSafeCallbackUrl("https://evil.example/dashboard"), "/dashboard");
+  assert.equal(getSafeCallbackUrl("//evil.example/invoices"), "/dashboard");
+  assert.equal(getSafeCallbackUrl("javascript:alert(1)"), "/dashboard");
+  assert.equal(getSafeCallbackUrl("/blogs"), "/dashboard");
+  assert.equal(getSafeCallbackUrl(undefined), "/dashboard");
+  assert.equal(
+    createCallbackUrl("/invoices", { status: "pending", client: ["Acme & Co", "Example"] }),
+    "/invoices?status=pending&client=Acme+%26+Co&client=Example",
+  );
 });
 
 test("Drizzle's legacy TypeScript loader accepts the app config with patched esbuild", async () => {

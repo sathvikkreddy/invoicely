@@ -58,4 +58,5 @@ jobs:
           PREVIEW_BRANCH: ${{ github.event.ref }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
           NEON_PARENT_BRANCH_ID: ${{ vars.NEON_PARENT_BRANCH_ID }}
+          NEON_PARENT_ENDPOINT_ID: ${{ vars.NEON_PARENT_ENDPOINT_ID }}
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}

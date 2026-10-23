@@ -31,10 +31,14 @@ function environment(overrides = {}) {
     CLOUDFLARE_PREVIEW: "true",
     NEON_PROJECT_ID: "test-project",
     NEON_PARENT_BRANCH_ID: "br-test-dev",
+    NEON_PARENT_ENDPOINT_ID: devEndpoint,
+    NEON_PRODUCTION_ENDPOINT_ID: prodEndpoint,
+    NEON_DATABASE_NAME: "invoicely",
+    NEON_ROLE_NAME: "invoicely_owner",
     NEON_API_KEY: "test-neon-management-token",
     DATABASE_URL: oldDatabaseUrl,
     BETTER_AUTH_SECRET: "test-app-auth-secret",
-    BETTER_AUTH_URL: "https://invoicely.gg",
+    BETTER_AUTH_URL: "https://invoicely.sathvikkreddy.xyz",
     SENTRY_AUTH_TOKEN: "test-sentry-upload-token",
     ...overrides,
   };
@@ -136,11 +140,12 @@ test("concurrent build generations have distinct names while same-build retries 
 });
 
 test("database URLs must use isolated Neon endpoints, the app database, and SSL", () => {
-  assert.equal(validateDatabaseUrl(directUrl).href, directUrl);
-  assert.equal(validateDatabaseUrl(pooledUrl).href, pooledUrl);
+  const env = environment();
+  assert.equal(validateDatabaseUrl(directUrl, env).href, directUrl);
+  assert.equal(validateDatabaseUrl(pooledUrl, env).href, pooledUrl);
   for (const endpoint of [devEndpoint, `${devEndpoint}-pooler`, prodEndpoint, `${prodEndpoint}-pooler`])
     assert.throws(
-      () => validateDatabaseUrl(directUrl.replace("ep-test-preview.", `${endpoint}.`)),
+      () => validateDatabaseUrl(directUrl.replace("ep-test-preview.", `${endpoint}.`), env),
       /isolated preview database/,
     );
   for (const invalid of [
@@ -148,10 +153,11 @@ test("database URLs must use isolated Neon endpoints, the app database, and SSL"
     directUrl.replace("postgresql:", "https:"),
     directUrl.replace(".neon.tech", ".neon.tech.example.test"),
     directUrl.replace("/invoicely?", "/other?"),
+    directUrl.replace("invoicely_owner:", "other_owner:"),
     directUrl.replace(":test-preview-password", ""),
     directUrl.replace("sslmode=require", "sslmode=disable"),
   ])
-    assert.throws(() => validateDatabaseUrl(invalid));
+    assert.throws(() => validateDatabaseUrl(invalid, env));
 });
 
 test("parent verification requires the configured branch to own the selected development endpoint", async () => {
@@ -362,6 +368,10 @@ test("preview build migrates a direct URL, builds with pooled URL, and persists 
       "NEON_API_KEY",
       "NEON_PROJECT_ID",
       "NEON_PARENT_BRANCH_ID",
+      "NEON_PARENT_ENDPOINT_ID",
+      "NEON_PRODUCTION_ENDPOINT_ID",
+      "NEON_DATABASE_NAME",
+      "NEON_ROLE_NAME",
       "CLOUDFLARE_API_TOKEN",
       "CLOUDFLARE_ACCOUNT_ID",
     ])
@@ -438,11 +448,13 @@ test("native upload uses the exact build database and uploads only DATABASE_URL 
   });
   assert.equal(calls.length, 2);
   assert.deepEqual(calls[0].args, ["workspace", "web", "opennextjs-cloudflare", "populateCache", "local"]);
-  assert.deepEqual(calls[1].args.slice(0, 6), [
+  assert.deepEqual(calls[1].args.slice(0, 8), [
     "workspace",
     "web",
     "wrangler",
     "preview",
+    "--env",
+    "",
     "--name",
     env.WORKERS_CI_BRANCH,
   ]);

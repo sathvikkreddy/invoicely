@@ -6,7 +6,7 @@ import {
   ZodCreateInvoiceSchema,
 } from "@/zod-schemas/invoice/create-invoice";
 import { createBlobUrl, revokeBlobUrl } from "@/lib/invoice/create-blob-url";
-import { parseCatchError } from "@/lib/neverthrow/parseCatchError";
+import { parseCatchError } from "@/lib/errors/parse-catch-error";
 import { invoiceErrorAtom } from "@/global/atoms/invoice-atom";
 import { useMounted, useResizeObserver } from "@mantine/hooks";
 import { createPdfBlob } from "@/lib/invoice/create-pdf-blob";

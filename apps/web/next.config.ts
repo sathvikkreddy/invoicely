@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/:path*",
-        has: [{ type: "host", value: "^[^.]+\\.preview\\.invoicely\\.gg$" }],
+        has: [{ type: "host", value: "^[^.]+\\.preview\\.invoicely\\.sathvikkreddy\\.xyz$" }],
         headers: [{ key: "X-Robots-Tag", value: "noindex" }],
       },
     ];
@@ -45,7 +45,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "storage.invoicely.gg", // Cloudflare R2 Storage
+        hostname: "storage.invoicely.sathvikkreddy.xyz", // Cloudflare R2 Storage
       },
       {
         protocol: "https",

@@ -11,7 +11,6 @@ import { FormColorPicker } from "@/components/ui/form/form-color-picker";
 import InvoiceItemsSection from "./invoiceHelpers/invoice-items-section";
 import { FormDatePicker } from "@/components/ui/form/form-date-picker";
 import { InvoiceFontSelector } from "./invoiceHelpers/invoice-fonts";
-import { getAllImages } from "@/lib/indexdb-queries/getAllImages";
 import { FormTextarea } from "@/components/ui/form/form-textarea";
 import { FormSelect } from "@/components/ui/form/form-select";
 import { currenciesWithSymbols } from "@/constants/currency";
@@ -20,34 +19,18 @@ import FormRow from "@/components/ui/form/form-row";
 import { SelectItem } from "@/components/ui/select";
 import { useResizeObserver } from "@mantine/hooks";
 import { Form } from "@/components/ui/form/form";
-import { useQuery } from "@tanstack/react-query";
 import { UseFormReturn } from "react-hook-form";
-import { useSession } from "@/lib/client-auth";
 import { Badge } from "@/components/ui/badge";
-import { useTRPC } from "@/trpc/client";
 import { cn } from "@/lib/utils";
 import React from "react";
 
 interface InvoiceFormProps {
   form: UseFormReturn<ZodCreateInvoiceSchema>;
+  images: string[];
 }
 
-const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
-  const trpc = useTRPC();
+const InvoiceForm: React.FC<InvoiceFormProps> = ({ form, images }) => {
   const [resizeRef, container] = useResizeObserver();
-
-  const { data: session } = useSession();
-
-  // fetching images from indexedDB
-  const idbImages = useQuery({
-    queryKey: ["idb-images"],
-    queryFn: () => getAllImages(),
-  });
-  // Fetching Server Images
-  const serverImages = useQuery({
-    ...trpc.cloudflare.listImages.queryOptions(),
-    enabled: !!session?.user,
-  });
 
   return (
     <div className="scroll-bar-hidden flex h-full flex-col overflow-y-scroll">
@@ -68,15 +51,10 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
                 <div className={cn(container.width > 1200 ? "w-fit" : "w-full [&>*]:w-full", "flex flex-row gap-4")}>
                   <InvoiceImageSelectorSheet
                     type="logo"
-                    isLoading={idbImages.isLoading || serverImages.isLoading}
-                    idbImages={idbImages.data || []}
-                    serverImages={serverImages.data?.images || []}
-                    user={session?.user}
+                    isLoading={false}
+                    images={images}
                     onUrlChange={(url) => {
                       form.setValue("companyDetails.logo", url);
-                    }}
-                    onBase64Change={(base64) => {
-                      form.setValue("companyDetails.logoBase64", base64);
                     }}
                   >
                     <SheetImageSelectorTrigger
@@ -84,22 +62,16 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
                       previewUrl={form.watch("companyDetails.logo") ?? undefined}
                       onRemove={() => {
                         form.setValue("companyDetails.logo", "");
-                        form.setValue("companyDetails.logoBase64", undefined);
                       }}
                       label="Company Logo"
                     />
                   </InvoiceImageSelectorSheet>
                   <InvoiceImageSelectorSheet
                     type="signature"
-                    isLoading={idbImages.isLoading || serverImages.isLoading}
-                    idbImages={idbImages.data || []}
-                    serverImages={serverImages.data?.images || []}
-                    user={session?.user}
+                    isLoading={false}
+                    images={images}
                     onUrlChange={(url) => {
                       form.setValue("companyDetails.signature", url);
-                    }}
-                    onBase64Change={(base64) => {
-                      form.setValue("companyDetails.signatureBase64", base64);
                     }}
                   >
                     <SheetImageSelectorTrigger
@@ -107,7 +79,6 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ form }) => {
                       previewUrl={form.watch("companyDetails.signature") ?? undefined}
                       onRemove={() => {
                         form.setValue("companyDetails.signature", "");
-                        form.setValue("companyDetails.signatureBase64", undefined);
                       }}
                       label="Company Signature"
                     />

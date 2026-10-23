@@ -1,13 +1,11 @@
 import {
   BoxIcon,
   CalendarCheckIcon,
-  DatabaseIcon,
   FileAlertIcon,
   FileBanIcon,
   FileCheckIcon,
   FilePenIcon,
   FileRefreshIcon,
-  HardDriveIcon,
   HourglassStartIcon,
   IdBadgeIcon,
   PriorityMediumIcon,
@@ -23,7 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { createColumnConfigHelper } from "@/components/ui/data-table-filter/core/filters";
-import { HeaderColumnButton, FormatTableDateObject } from "@/components/ui/data-table";
+import { HeaderColumnButton, FormatTableDateString } from "@/components/ui/data-table";
 import type { InvoiceStatusType } from "@invoicely/db/schema/invoice";
 import { Badge, BadgeVariants } from "@/components/ui/badge";
 import { createColumnHelper } from "@tanstack/react-table";
@@ -31,7 +29,6 @@ import { getTotalValue } from "@/constants/pdf-helpers";
 import getSymbolFromCurrency from "currency-symbol-map";
 import DeleteInvoiceModal from "./deleteInvoiceModal";
 import UpdateStatusModal from "./updateStatusModal";
-import MigrateToDbModal from "./migrateToDbModal";
 import { Invoice } from "@/types/common/invoice";
 import { CalendarPenIcon } from "@/assets/icons";
 import { Button } from "@/components/ui/button";
@@ -42,18 +39,6 @@ const columnHelper = createColumnHelper<Invoice>();
 const columnConfigHelper = createColumnConfigHelper<Invoice>();
 
 export const columns = [
-  columnHelper.accessor((row) => row.type, {
-    id: "type",
-    header: ({ column }) => <HeaderColumnButton column={column}>Storage</HeaderColumnButton>,
-    cell: ({ row }) => (
-      <Badge variant={row.original.type === "local" ? "default" : "rose"} icon>
-        {row.original.type === "local" ? <HardDriveIcon /> : <DatabaseIcon />}
-        {row.original.type === "local" ? "Local" : "Server"}
-      </Badge>
-    ),
-    enableSorting: false,
-  }),
-
   columnHelper.accessor(
     (row) => `${row.invoiceFields.invoiceDetails.prefix}${row.invoiceFields.invoiceDetails.serialNumber}`,
     {
@@ -109,20 +94,20 @@ export const columns = [
   columnHelper.accessor((row) => row.invoiceFields.invoiceDetails.date, {
     id: "invoiceDate",
     header: ({ column }) => <HeaderColumnButton column={column}>Invoice Date</HeaderColumnButton>,
-    cell: ({ row }) => <FormatTableDateObject date={row.original.invoiceFields.invoiceDetails.date} />,
+    cell: ({ row }) => <FormatTableDateString date={row.original.invoiceFields.invoiceDetails.date} />,
   }),
 
   columnHelper.accessor((row) => row.createdAt, {
     id: "createdAt",
     header: ({ column }) => <HeaderColumnButton column={column}>Created At</HeaderColumnButton>,
-    cell: ({ row }) => <FormatTableDateObject date={row.original.createdAt} />,
+    cell: ({ row }) => <FormatTableDateString date={row.original.createdAt} />,
   }),
 
   columnHelper.accessor((row) => row.paidAt, {
     id: "paidAt",
     header: ({ column }) => <HeaderColumnButton column={column}>Paid At</HeaderColumnButton>,
     cell: ({ row }) =>
-      row.original.paidAt ? <FormatTableDateObject date={row.original.paidAt} /> : <Badge variant="gray">Unpaid</Badge>,
+      row.original.paidAt ? <FormatTableDateString date={row.original.paidAt} /> : <Badge variant="gray">Unpaid</Badge>,
   }),
 
   // Actions
@@ -130,12 +115,12 @@ export const columns = [
     id: "actions",
     header: ({ column }) => <HeaderColumnButton column={column}>Actions</HeaderColumnButton>,
     cell: ({ row }) => {
-      const { id, type, status, paidAt, invoiceFields } = row.original;
+      const { id, status, invoiceFields } = row.original;
 
       return (
         <div key={id} className="flex flex-row items-center gap-2">
           <Button asChild variant="secondary" size="xs" className="focus-visible:ring-ring focus-visible:ring-2">
-            <Link href={`/edit/${type}/${id}`}>View</Link>
+            <Link href={`/edit/${id}`}>View</Link>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -150,17 +135,14 @@ export const columns = [
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuGroup>
-                <UpdateStatusModal invoiceId={id} type={type} currentStatus={status} />
+                <UpdateStatusModal invoiceId={id} currentStatus={status} />
                 <DropdownMenuItem asChild>
-                  <Link href={`/edit/${type}/${id}`}>
+                  <Link href={`/edit/${id}`}>
                     <FilePenIcon />
                     <span>Edit</span>
                   </Link>
                 </DropdownMenuItem>
-                {type === "local" && (
-                  <MigrateToDbModal invoiceId={id} invoiceFields={invoiceFields} status={status} paidAt={paidAt} />
-                )}
-                <DeleteInvoiceModal invoiceId={id} type={type} />
+                <DeleteInvoiceModal invoiceId={id} />
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -222,35 +204,23 @@ export const importInvoiceColumns = [
   columnHelper.accessor((row) => row.invoiceFields.invoiceDetails.date, {
     id: "invoiceDate",
     header: ({ column }) => <HeaderColumnButton column={column}>Invoice Date</HeaderColumnButton>,
-    cell: ({ row }) => <FormatTableDateObject date={row.original.invoiceFields.invoiceDetails.date} />,
+    cell: ({ row }) => <FormatTableDateString date={row.original.invoiceFields.invoiceDetails.date} />,
   }),
 
   columnHelper.accessor((row) => row.createdAt, {
     id: "createdAt",
     header: ({ column }) => <HeaderColumnButton column={column}>Created At</HeaderColumnButton>,
-    cell: ({ row }) => <FormatTableDateObject date={row.original.createdAt} />,
+    cell: ({ row }) => <FormatTableDateString date={row.original.createdAt} />,
   }),
 ];
 
 export const columnConfig = [
-  // Storage
-  columnConfigHelper
-    .option()
-    .id("type")
-    .displayName("Storage")
-    .accessor((row) => row.type)
-    .icon(DatabaseIcon)
-    .options([
-      { label: "", value: "local", icon: <Badge variant="default">Local</Badge> },
-      { label: "", value: "server", icon: <Badge variant="rose">Server</Badge> },
-    ])
-    .build(),
   // Invoice Date
   columnConfigHelper
     .date()
     .id("invoiceDate")
     .displayName("Invoice Date")
-    .accessor((row) => row.invoiceFields.invoiceDetails.date)
+    .accessor((row) => new Date(row.invoiceFields.invoiceDetails.date))
     .icon(ReceiptIcon)
     .build(),
   // Created At
@@ -258,7 +228,7 @@ export const columnConfig = [
     .date()
     .id("createdAt")
     .displayName("Created At")
-    .accessor((row) => row.createdAt)
+    .accessor((row) => new Date(row.createdAt))
     .icon(CalendarPenIcon)
     .build(),
   // Paid At
@@ -266,7 +236,7 @@ export const columnConfig = [
     .date()
     .id("paidAt")
     .displayName("Paid At")
-    .accessor((row) => row.paidAt)
+    .accessor((row) => (row.paidAt ? new Date(row.paidAt) : null))
     .icon(CalendarCheckIcon)
     .build(),
   // Serial No
@@ -295,18 +265,6 @@ export const columnConfig = [
 ];
 
 export const importInvoiceColumnConfig = [
-  // Storage
-  columnConfigHelper
-    .option()
-    .id("type")
-    .displayName("Storage")
-    .accessor((row) => row.type)
-    .icon(DatabaseIcon)
-    .options([
-      { label: "", value: "local", icon: <Badge variant="default">Local</Badge> },
-      { label: "", value: "server", icon: <Badge variant="rose">Server</Badge> },
-    ])
-    .build(),
   // Id
   columnConfigHelper
     .text()
@@ -320,7 +278,7 @@ export const importInvoiceColumnConfig = [
     .date()
     .id("invoiceDate")
     .displayName("Invoice Date")
-    .accessor((row) => row.invoiceFields.invoiceDetails.date)
+    .accessor((row) => new Date(row.invoiceFields.invoiceDetails.date))
     .icon(ReceiptIcon)
     .build(),
   // Created At
@@ -328,7 +286,7 @@ export const importInvoiceColumnConfig = [
     .date()
     .id("createdAt")
     .displayName("Created At")
-    .accessor((row) => row.createdAt)
+    .accessor((row) => new Date(row.createdAt))
     .icon(CalendarPenIcon)
     .build(),
   // Paid At
@@ -336,7 +294,7 @@ export const importInvoiceColumnConfig = [
     .date()
     .id("paidAt")
     .displayName("Paid At")
-    .accessor((row) => row.paidAt)
+    .accessor((row) => (row.paidAt ? new Date(row.paidAt) : null))
     .icon(CalendarCheckIcon)
     .build(),
   // Serial No

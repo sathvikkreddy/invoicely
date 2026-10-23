@@ -1,14 +1,20 @@
-import type { InvoiceStatusType, InvoiceTypeType } from "@invoicely/db/schema/invoice";
-import { ZodCreateInvoiceSchema } from "@/zod-schemas/invoice/create-invoice";
+import type { ZodCreateInvoiceSchema } from "@/zod-schemas/invoice/create-invoice";
+import type { InvoiceStatusType } from "@invoicely/db/schema/invoice";
+
+export interface SerializedInvoiceFields extends Omit<ZodCreateInvoiceSchema, "invoiceDetails"> {
+  invoiceDetails: Omit<ZodCreateInvoiceSchema["invoiceDetails"], "date" | "dueDate"> & {
+    date: string;
+    dueDate?: string | null;
+  };
+}
 
 export interface Invoice {
   id: string;
-  type: InvoiceTypeType;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   status: InvoiceStatusType;
-  paidAt: Date | null;
-  invoiceFields: ZodCreateInvoiceSchema;
+  paidAt: string | null;
+  invoiceFields: SerializedInvoiceFields;
 }
 
 export type InvoiceImageType = "logo" | "signature";

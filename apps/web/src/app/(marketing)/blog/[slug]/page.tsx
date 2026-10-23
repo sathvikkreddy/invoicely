@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       description: post.summary,
       images: [
         {
-          url: `https://invoicely.gg/api/og?title=${post.title}&link=${post.slug}`,
+          url: `https://invoicely.sathvikkreddy.xyz/api/og?title=${post.title}&link=${post.slug}`,
           width: 1200,
           height: 630,
           alt: post.title,

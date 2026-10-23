@@ -1,10 +1,15 @@
-import { ZodCreateInvoiceSchema } from "@/zod-schemas/invoice/create-invoice";
+import type { ZodCreateInvoiceSchema } from "@/zod-schemas/invoice/create-invoice";
 
-export const getSubTotalValue = (data: ZodCreateInvoiceSchema) => {
+interface InvoiceTotalsInput {
+  items: ZodCreateInvoiceSchema["items"];
+  invoiceDetails: Pick<ZodCreateInvoiceSchema["invoiceDetails"], "billingDetails">;
+}
+
+export const getSubTotalValue = (data: InvoiceTotalsInput) => {
   return data.items.reduce((acc, item) => acc + item.quantity * item.unitPrice, 0);
 };
 
-export const getTotalValue = (data: ZodCreateInvoiceSchema) => {
+export const getTotalValue = (data: InvoiceTotalsInput) => {
   const subtotal = getSubTotalValue(data);
 
   const billingRates = data.invoiceDetails.billingDetails;

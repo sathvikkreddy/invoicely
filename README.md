@@ -4,7 +4,7 @@
 
 # Invoicely - (Contributions Accepted)
 
-Modern, open-source invoice generation platform built with Next.js, tRPC, and TypeScript.
+Modern, open-source invoice generation platform built with Next.js, PostgreSQL, and TypeScript.
 
 For Cloudflare Workers hosting with OpenNext, follow the [deployment guide](docs/cloudflare.md), including staging validation and domain cutover.
 
@@ -71,7 +71,7 @@ The Sentry resolution pins `@sentry/nextjs@10.76.0` to `.yarn/patches/sentry-nex
 
 ## Financial Dashboard
 
-Open **Dashboard** in the sidebar to view local invoices and, when signed in, your saved server invoices. Select a currency to see collected, outstanding, and overdue totals, six- or twelve-month trends, and the top five clients by all-time billed amount. Currencies are never combined or converted.
+Sign in and open **Dashboard** in the sidebar to view the invoices saved to your account. Select a currency to see collected, outstanding, and overdue totals, six- or twelve-month trends, and the top five clients by all-time billed amount. Currencies are never combined or converted.
 
 - Collected includes invoices marked `success`. Monthly collections use the recorded payment date; paid invoices without one remain in all-time totals.
 - Outstanding includes `pending`, `error`, and `expired` invoices. Overdue is the subset past its due date or marked `expired`; an invoice due today is not overdue.
@@ -88,10 +88,10 @@ The dashboard uses existing invoice fields and requires **no new database migrat
 - **React 19** - UI library
 - **TypeScript 5.8.2** - Type-safe JavaScript
 
-### API & State Management
+### Data & State Management
 
-- **tRPC 11.1.2** - End-to-end type-safe APIs
-- **TanStack Query 5.76.1** - Server state management
+- **React Server Components** - Authenticated database reads
+- **Next.js Server Actions** - Validated internal mutations
 - **Jotai 2.12.3** - Atomic state management
 - **Zod 3.25.7** - Schema validation
 
@@ -143,13 +143,13 @@ invoicely/
 ├── apps/
 │   └── web/                    # Next.js web application
 │       ├── src/
-│       │   ├── app/           # App Router pages
+│       │   ├── actions/       # Authenticated Server Actions
+│       │   ├── app/           # App Router pages and Server Components
 │       │   ├── components/    # Reusable UI components
 │       │   ├── constants/     # Application constants
 │       │   ├── hooks/         # Custom React hooks
 │       │   ├── lib/          # Utility libraries
 │       │   ├── providers/    # Context providers
-│       │   ├── trpc/         # tRPC configuration
 │       │   ├── types/        # TypeScript type definitions
 │       │   └── zod-schemas/  # Zod validation schemas
 │       ├── public/           # Static assets
@@ -202,7 +202,6 @@ NEXT_PUBLIC_POSTHOG_KEY="your-posthog-key"
 
 # Public URLs
 NEXT_PUBLIC_BASE_URL="http://localhost:3000"
-NEXT_PUBLIC_TRPC_BASE_URL="http://localhost:3000/api/trpc"
 ```
 
 ### Environment Management
@@ -321,10 +320,9 @@ We welcome contributions to Invoicely! Please follow these guidelines:
 - [React Documentation](https://react.dev)
 - [TypeScript Documentation](https://www.typescriptlang.org/docs)
 
-### API & Data Management
+### Data Management
 
-- [tRPC Documentation](https://trpc.io/docs)
-- [TanStack Query Documentation](https://tanstack.com/query/latest)
+- [Next.js Server Actions Documentation](https://nextjs.org/docs/app/getting-started/updating-data)
 - [Jotai Documentation](https://jotai.org)
 - [Zod Documentation](https://zod.dev)
 

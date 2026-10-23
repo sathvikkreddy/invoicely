@@ -18,8 +18,6 @@ export const enum ERROR_MESSAGES {
   FAILED_TO_GET_CANVAS_CONTEXT = "Failed to get canvas context",
   DATABASE_ERROR = "Database Error",
   FAILED_TO_EDIT_INVOICE = "Failed to edit invoice",
-  NOT_ALLOWED_TO_SAVE_DATA = "Not allowed to save data. Please allow saving data in your account settings.",
-  INDEXDB_ERROR = "IndexDB Error",
   NOT_ALLOWED_TO_DELETE_IMAGE = "You are not allowed to delete this image",
   MAX_IMAGES_REACHED = "You have reached the maximum number of images in your account! Try deleting some images.",
 }
