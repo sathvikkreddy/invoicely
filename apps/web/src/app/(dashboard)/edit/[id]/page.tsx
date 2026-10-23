@@ -2,7 +2,6 @@ import { createCallbackUrl, type CallbackSearchParams } from "@/lib/auth-callbac
 import { listUserImageKeys } from "@/lib/cloudflare/r2/list-user-image-keys";
 import { serializeDatabaseInvoice } from "@/lib/invoice/serialize-invoice";
 import { listInvoicesQuery } from "@/lib/db-queries/invoice/listInvoices";
-import { getInvoiceQuery } from "@/lib/db-queries/invoice/getInvoice";
 import InvoicePage from "@/app/(dashboard)/create/invoice/invoice";
 import { requireServerSession } from "@/lib/server-session";
 import { notFound } from "next/navigation";
@@ -19,21 +18,17 @@ const Page = async ({ params, searchParams }: PageProps) => {
   const parsedId = z.string().uuid().safeParse(id);
   if (!parsedId.success) notFound();
 
-  const [databaseInvoice, databaseInvoices, images] = await Promise.all([
-    getInvoiceQuery(parsedId.data, session.user.id),
+  const [databaseInvoices, images] = await Promise.all([
     listInvoicesQuery(session.user.id),
     listUserImageKeys(session.user.id),
   ]);
+  const invoices = databaseInvoices.map(serializeDatabaseInvoice);
+  const invoice = invoices.find(({ id: invoiceId }) => invoiceId === parsedId.data);
 
-  if (!databaseInvoice) notFound();
+  if (!invoice) notFound();
 
   return (
-    <InvoicePage
-      invoiceId={parsedId.data}
-      defaultInvoice={serializeDatabaseInvoice(databaseInvoice).invoiceFields}
-      invoices={databaseInvoices.map(serializeDatabaseInvoice)}
-      images={images}
-    />
+    <InvoicePage invoiceId={parsedId.data} defaultInvoice={invoice.invoiceFields} invoices={invoices} images={images} />
   );
 };
 
